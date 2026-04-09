@@ -233,20 +233,20 @@
                         </h3>
                         <div class="pool-stats-row">
                             <div class="pool-stat-item">
-                                <span class="pool-stat-num status-ok">{{ poolData.stats.healthy }}</span>
+                                <span class="pool-stat-num status-ok">{{ state.poolData.stats.healthy }}</span>
                                 <span class="pool-stat-label">{{ t("poolHealthy") }}</span>
                             </div>
                             <div class="pool-stat-item">
-                                <span class="pool-stat-num status-warning">{{ poolData.stats.resting }}</span>
+                                <span class="pool-stat-num status-warning">{{ state.poolData.stats.resting }}</span>
                                 <span class="pool-stat-label">{{ t("poolResting") }}</span>
                             </div>
                             <div class="pool-stat-item">
-                                <span class="pool-stat-num status-error">{{ poolData.stats.retired }}</span>
+                                <span class="pool-stat-num status-error">{{ state.poolData.stats.retired }}</span>
                                 <span class="pool-stat-label">{{ t("poolRetired") }}</span>
                             </div>
                             <div class="pool-stat-item">
                                 <span class="pool-stat-num" style="color: var(--text-secondary)">{{
-                                    poolData.stats.disconnected
+                                    state.poolData.stats.disconnected
                                 }}</span>
                                 <span class="pool-stat-label">{{ t("poolDisconnected") }}</span>
                             </div>
@@ -277,24 +277,24 @@
                         <div class="status-list">
                             <div class="status-item">
                                 <span class="label">{{ t("poolTotalSlots") }}</span>
-                                <span class="value">{{ poolData.stats.total }}</span>
+                                <span class="value">{{ state.poolData.stats.total }}</span>
                             </div>
                             <div class="status-item">
                                 <span class="label">{{ t("poolActiveBatch") }}</span>
-                                <span class="value">#{{ poolData.stats.activeBatch }}</span>
+                                <span class="value">#{{ state.poolData.stats.activeBatch }}</span>
                             </div>
                             <div class="status-item">
                                 <span class="label">{{ t("poolBatchSize") }}</span>
-                                <span class="value">{{ poolData.stats.batchSize }}</span>
+                                <span class="value">{{ state.poolData.stats.batchSize }}</span>
                             </div>
                             <div class="status-item">
                                 <span class="label">{{ t("poolTotalBatches") }}</span>
-                                <span class="value">{{ poolData.stats.totalBatches }}</span>
+                                <span class="value">{{ state.poolData.stats.totalBatches }}</span>
                             </div>
                             <div class="status-item">
                                 <span class="label">{{ t("poolPendingSwaps") }}</span>
-                                <span class="value" :class="poolData.pendingSwaps > 0 ? 'status-warning' : ''">{{
-                                    poolData.pendingSwaps
+                                <span class="value" :class="state.poolData.pendingSwaps > 0 ? 'status-warning' : ''">{{
+                                    state.poolData.pendingSwaps
                                 }}</span>
                             </div>
                         </div>
@@ -325,15 +325,15 @@
                         <div class="status-list">
                             <div class="status-item">
                                 <span class="label">{{ t("poolStickyThreshold") }}</span>
-                                <span class="value">{{ poolData.stickyThreshold }}</span>
+                                <span class="value">{{ state.poolData.stickyThreshold }}</span>
                             </div>
                             <div class="status-item">
                                 <span class="label">{{ t("poolStickySessions") }}</span>
-                                <span class="value">{{ poolData.stickySessionCount }}</span>
+                                <span class="value">{{ state.poolData.stickySessionCount }}</span>
                             </div>
                             <div class="status-item">
                                 <span class="label">{{ t("poolRestDuration") }}</span>
-                                <span class="value">{{ poolData.restDurationMinutes }}min</span>
+                                <span class="value">{{ state.poolData.restDurationMinutes }}min</span>
                             </div>
                         </div>
                     </div>
@@ -379,7 +379,7 @@
                         </h3>
                         <div class="pool-slot-grid">
                             <el-tooltip
-                                v-for="slot in poolData.slots"
+                                v-for="slot in state.poolData.slots"
                                 :key="`${slot.authIndex}-${slot.status}`"
                                 :content="getSlotTooltip(slot)"
                                 placement="top"
