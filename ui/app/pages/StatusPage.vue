@@ -56,29 +56,6 @@
                 </button>
                 <button
                     class="menu-item"
-                    :class="{ active: activeTab === 'pool' }"
-                    :title="t('poolStatus')"
-                    @click="switchTab('pool')"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-                        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-                        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-                        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-                    </svg>
-                </button>
-                <button
-                    class="menu-item"
                     :class="{ active: activeTab === 'logs' }"
                     :title="t('realtimeLogs')"
                     @click="switchTab('logs')"
@@ -235,8 +212,8 @@
                         </div>
                     </div>
 
-                    <!-- Account Status Card -->
-                    <div v-if="state.serviceConnected" class="status-card">
+                    <!-- Pool Health -->
+                    <div class="status-card">
                         <h3 class="card-title">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -250,161 +227,34 @@
                                 stroke-linejoin="round"
                                 style="margin-right: 8px; vertical-align: text-bottom"
                             >
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="12" cy="7" r="4"></circle>
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
                             </svg>
-                            {{ t("accountStatus") }}
+                            {{ t("poolHealth") }}
                         </h3>
-                        <div class="status-list">
-                            <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px"
-                                    >
-                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="8.5" cy="7" r="4"></circle>
-                                        <polyline points="17 11 19 13 23 9"></polyline>
-                                    </svg>
-                                    {{ t("currentAccount") }}
-                                </span>
-                                <span class="value account-value">
-                                    <span class="account-name" :class="currentAccountNameClass">
-                                        #{{ state.currentAuthIndex }} {{ currentAccountName }}
-                                    </span>
-                                </span>
+                        <div class="pool-stats-row">
+                            <div class="pool-stat-item">
+                                <span class="pool-stat-num status-ok">{{ poolData.stats.healthy }}</span>
+                                <span class="pool-stat-label">{{ t("poolHealthy") }}</span>
                             </div>
-                            <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px"
-                                    >
-                                        <line x1="18" y1="20" x2="18" y2="10"></line>
-                                        <line x1="12" y1="20" x2="12" y2="4"></line>
-                                        <line x1="6" y1="20" x2="6" y2="14"></line>
-                                    </svg>
-                                    <span>
-                                        {{ t("usageCount") }}
-                                        <EnvVarTooltip env-var="SWITCH_ON_USES" doc-section="proxy-config" />
-                                    </span>
-                                </span>
-                                <span class="value">{{ state.usageCount }}</span>
+                            <div class="pool-stat-item">
+                                <span class="pool-stat-num status-warning">{{ poolData.stats.resting }}</span>
+                                <span class="pool-stat-label">{{ t("poolResting") }}</span>
                             </div>
-                            <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px"
-                                    >
-                                        <path
-                                            d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
-                                        ></path>
-                                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                                    </svg>
-                                    <span>
-                                        {{ t("consecutiveFailures") }}
-                                        <EnvVarTooltip env-var="FAILURE_THRESHOLD" doc-section="proxy-config" />
-                                    </span>
-                                </span>
-                                <span class="value">{{ state.failureCount }}</span>
+                            <div class="pool-stat-item">
+                                <span class="pool-stat-num status-error">{{ poolData.stats.retired }}</span>
+                                <span class="pool-stat-label">{{ t("poolRetired") }}</span>
                             </div>
-                            <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px"
-                                    >
-                                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                                        <polyline points="2 17 12 22 22 17"></polyline>
-                                        <polyline points="2 12 12 17 22 12"></polyline>
-                                    </svg>
-                                    {{ t("totalScanned") }}
-                                </span>
-                                <span class="value">{{ totalScannedCount }}</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px"
-                                    >
-                                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                                    </svg>
-                                    {{ t("dedupedAvailable") }}
-                                </span>
-                                <span class="value">{{ dedupedAvailableCount }}</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px"
-                                    >
-                                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                                    </svg>
-                                    <span>
-                                        {{ t("activeContexts") }}
-                                        <EnvVarTooltip env-var="MAX_CONTEXTS" doc-section="proxy-config" />
-                                    </span>
-                                </span>
-                                <span class="value">{{ activeContextsDisplay }}</span>
+                            <div class="pool-stat-item">
+                                <span class="pool-stat-num" style="color: var(--text-secondary)">{{
+                                    poolData.stats.disconnected
+                                }}</span>
+                                <span class="pool-stat-label">{{ t("poolDisconnected") }}</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Proxy Settings Status Card -->
-                    <div v-if="state.serviceConnected" class="status-card">
+                    <!-- Batch Info -->
+                    <div class="status-card">
                         <h3 class="card-title">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -418,196 +268,136 @@
                                 stroke-linejoin="round"
                                 style="margin-right: 8px; vertical-align: text-bottom"
                             >
-                                <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path>
+                                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                                <polyline points="2 17 12 22 22 17"></polyline>
+                                <polyline points="2 12 12 17 22 12"></polyline>
                             </svg>
-                            {{ t("proxySettingsStatus") }}
+                            {{ t("poolBatchInfo") }}
                         </h3>
                         <div class="status-list">
                             <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px; vertical-align: middle"
-                                    >
-                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                                    </svg>
-                                    <span>
-                                        {{ t("streamingMode") }}
-                                        <span
-                                            style="
-                                                font-size: 0.8em;
-                                                color: var(--text-secondary);
-                                                font-weight: normal;
-                                                margin-left: 4px;
-                                            "
-                                            >({{ t("onlyAppliesWhenStreamingEnabled") }})</span
-                                        >
-                                        <EnvVarTooltip env-var="STREAMING_MODE" doc-section="other-config" />
-                                    </span>
-                                </span>
-                                <span
-                                    class="value status-text-bold"
-                                    :class="state.streamingModeReal ? 'status-ok' : 'status-error'"
-                                    >{{ state.streamingModeReal ? t("real") : t("fake") }}</span
-                                >
+                                <span class="label">{{ t("poolTotalSlots") }}</span>
+                                <span class="value">{{ poolData.stats.total }}</span>
                             </div>
                             <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px; vertical-align: middle"
-                                    >
-                                        <path d="M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8"></path>
-                                        <path d="M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8"></path>
-                                        <path d="M17.5 16a3.5 3.5 0 0 0 0 -7h-.5"></path>
-                                        <path d="M19 9.3v-2.8a3.5 3.5 0 0 0 -7 0"></path>
-                                        <path d="M6.5 16a3.5 3.5 0 0 1 0 -7h.5"></path>
-                                        <path d="M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10"></path>
-                                    </svg>
-                                    <span>
-                                        {{ t("forceThinking") }}
-                                        <EnvVarTooltip env-var="FORCE_THINKING" doc-section="other-config" />
-                                    </span>
-                                </span>
-                                <span
-                                    class="value status-text-bold"
-                                    :class="state.forceThinkingEnabled ? 'status-ok' : 'status-error'"
-                                    >{{ state.forceThinkingEnabled ? t("enabled") : t("disabled") }}</span
-                                >
+                                <span class="label">{{ t("poolActiveBatch") }}</span>
+                                <span class="value">#{{ poolData.stats.activeBatch }}</span>
                             </div>
                             <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px; vertical-align: middle"
-                                    >
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <line x1="2" y1="12" x2="22" y2="12"></line>
-                                        <path
-                                            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
-                                        ></path>
-                                    </svg>
-                                    <span>
-                                        {{ t("forceWebSearch") }}
-                                        <EnvVarTooltip env-var="FORCE_WEB_SEARCH" doc-section="other-config" />
-                                    </span>
-                                </span>
-                                <span
-                                    class="value status-text-bold"
-                                    :class="state.forceWebSearchEnabled ? 'status-ok' : 'status-error'"
-                                    >{{ state.forceWebSearchEnabled ? t("enabled") : t("disabled") }}</span
-                                >
+                                <span class="label">{{ t("poolBatchSize") }}</span>
+                                <span class="value">{{ poolData.stats.batchSize }}</span>
                             </div>
                             <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px; vertical-align: middle"
-                                    >
-                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                                    </svg>
-                                    <span>
-                                        {{ t("forceUrlContext") }}
-                                        <EnvVarTooltip env-var="FORCE_URL_CONTEXT" doc-section="other-config" />
-                                    </span>
-                                </span>
-                                <span
-                                    class="value status-text-bold"
-                                    :class="state.forceUrlContextEnabled ? 'status-ok' : 'status-error'"
-                                    >{{ state.forceUrlContextEnabled ? t("enabled") : t("disabled") }}</span
-                                >
+                                <span class="label">{{ t("poolTotalBatches") }}</span>
+                                <span class="value">{{ poolData.stats.totalBatches }}</span>
                             </div>
                             <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px; vertical-align: middle"
-                                    >
-                                        <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
-                                        <path d="M21 3v5h-5"></path>
-                                    </svg>
-                                    <span>
-                                        {{ t("maxRetries") }}
-                                        <span
-                                            style="
-                                                font-size: 0.8em;
-                                                color: var(--text-secondary);
-                                                font-weight: normal;
-                                                margin-left: 4px;
-                                            "
-                                            >({{ t("onlyAppliesWhenFakeStreaming") }})</span
-                                        >
-                                        <EnvVarTooltip env-var="MAX_RETRIES" doc-section="proxy-config" />
-                                    </span>
-                                </span>
-                                <span class="value">{{ state.maxRetries }}</span>
+                                <span class="label">{{ t("poolPendingSwaps") }}</span>
+                                <span class="value" :class="poolData.pendingSwaps > 0 ? 'status-warning' : ''">{{
+                                    poolData.pendingSwaps
+                                }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pool Config -->
+                    <div class="status-card">
+                        <h3 class="card-title">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                style="margin-right: 8px; vertical-align: text-bottom"
+                            >
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path
+                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                                ></path>
+                            </svg>
+                            {{ t("poolConfig") }}
+                        </h3>
+                        <div class="status-list">
+                            <div class="status-item">
+                                <span class="label">{{ t("poolStickyThreshold") }}</span>
+                                <span class="value">{{ poolData.stickyThreshold }}</span>
                             </div>
                             <div class="status-item">
-                                <span class="label">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="margin-right: 6px; vertical-align: middle"
-                                    >
-                                        <path
-                                            d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"
-                                        ></path>
-                                    </svg>
-                                    <span>
-                                        {{ t("apiKey") }}
-                                        <EnvVarTooltip env-var="API_KEYS" doc-section="app-config" />
-                                    </span>
-                                </span>
-                                <span class="value status-text-bold">{{ apiKeySourceText }}</span>
+                                <span class="label">{{ t("poolStickySessions") }}</span>
+                                <span class="value">{{ poolData.stickySessionCount }}</span>
                             </div>
+                            <div class="status-item">
+                                <span class="label">{{ t("poolRestDuration") }}</span>
+                                <span class="value">{{ poolData.restDurationMinutes }}min</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slot Visualization -->
+                <div class="full-width-section">
+                    <div class="status-card">
+                        <h3 class="card-title">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                style="margin-right: 8px; vertical-align: text-bottom"
+                            >
+                                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                            </svg>
+                            {{ t("poolSlots") }}
+                            <span
+                                style="
+                                    font-weight: normal;
+                                    font-size: 0.8em;
+                                    color: var(--text-secondary);
+                                    text-transform: none;
+                                    letter-spacing: 0;
+                                    margin-left: 8px;
+                                "
+                            >
+                                ({{ activePoolSlots.length }} {{ t("poolActive")
+                                }}<template v-if="retiredPoolSlots.length > 0"
+                                    >, {{ retiredPoolSlots.length }} {{ t("poolRetiredLabel") }}</template
+                                >)
+                            </span>
+                        </h3>
+                        <div class="pool-slot-grid">
+                            <el-tooltip
+                                v-for="slot in poolData.slots"
+                                :key="`${slot.authIndex}-${slot.status}`"
+                                :content="getSlotTooltip(slot)"
+                                placement="top"
+                                effect="dark"
+                                :hide-after="0"
+                                raw-content
+                            >
+                                <div class="pool-slot-tile" :class="getSlotClass(slot)">
+                                    <span class="pool-slot-index">#{{ slot.authIndex }}</span>
+                                    <span class="pool-slot-status-dot" :class="getSlotDotClass(slot)"></span>
+                                    <span v-if="slot.status === 'retired'" class="pool-slot-timer">{{
+                                        formatRecoveryTime(slot.recoveryRemainingMinutes)
+                                    }}</span>
+                                    <span v-else-if="slot.restingRemaining > 0" class="pool-slot-timer"
+                                        >{{ slot.restingRemaining }}s</span
+                                    >
+                                </div>
+                            </el-tooltip>
                         </div>
                     </div>
                 </div>
@@ -775,7 +565,6 @@
                                 class="account-list-item"
                                 style="cursor: pointer"
                                 :class="{
-                                    'is-current': item.index === state.currentAuthIndex,
                                     'is-selected': isAccountSelected(item.index),
                                 }"
                                 @click="toggleSelectAccount(item.index)"
@@ -801,58 +590,12 @@
                                         >
                                             {{ getAccountDisplayName(item) }}
                                         </span>
-                                        <span v-if="item.index === state.currentAuthIndex" class="current-badge">
-                                            {{ t("tagCurrent") }}
-                                        </span>
                                         <span v-if="item.isExpired" class="expired-badge">
                                             {{ t("tagExpired") }}
                                         </span>
                                     </div>
                                 </el-tooltip>
                                 <div class="account-actions">
-                                    <button
-                                        class="btn-switch"
-                                        :class="{
-                                            'is-active': item.index === state.currentAuthIndex,
-                                            'is-fast': item.hasContext && item.index !== state.currentAuthIndex,
-                                        }"
-                                        :disabled="isBusy || item.index === state.currentAuthIndex"
-                                        :title="
-                                            item.index === state.currentAuthIndex
-                                                ? t('currentAccount')
-                                                : item.hasContext
-                                                  ? t('fastSwitch')
-                                                  : t('btnSwitchAccount')
-                                        "
-                                        @click.stop="switchAccountByIndex(item.index)"
-                                    >
-                                        <svg
-                                            v-if="item.index !== state.currentAuthIndex"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 1024 1024"
-                                            fill="currentColor"
-                                        >
-                                            <path
-                                                d="M886.2 604.8H137.8c-22.1 0-40 17.9-40 40 0 8.4 2.6 16.2 7 22.6 1.9 4.5 4.8 8.7 8.4 12.4L289.5 856c7.8 7.8 18 11.7 28.3 11.7s20.5-3.9 28.3-11.7c15.6-15.6 15.6-40.9 0-56.6L231.3 684.8h654.8c22.1 0 40-17.9 40-40s-17.8-40-39.9-40zM137.8 419.2h748.4c22.1 0 40-17.9 40-40 0-8.4-2.6-16.2-7-22.6-1.4-3.3-3.4-6.5-5.8-9.5L769.2 170.9c-14-17.1-39.2-19.6-56.3-5.6-17.1 14-19.6 39.2-5.6 56.3l96.3 117.6H137.8c-22.1 0-40 17.9-40 40s17.9 40 40 40z"
-                                            ></path>
-                                        </svg>
-                                        <svg
-                                            v-else
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        >
-                                            <polyline points="20 6 9 17 4 12"></polyline>
-                                        </svg>
-                                    </button>
                                     <button
                                         class="btn-danger"
                                         :disabled="isBusy"
@@ -903,256 +646,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- POOL STATUS VIEW -->
-            <div v-if="activeTab === 'pool'" class="view-container">
-                <header class="page-header">
-                    <h1>
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="22"
-                            height="22"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            style="vertical-align: text-bottom"
-                        >
-                            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-                            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-                            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-                            <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-                        </svg>
-                        {{ t("poolStatus") }}
-                        <span
-                            class="dot"
-                            :class="poolData.enabled ? 'status-running' : ''"
-                            style="display: inline-block; vertical-align: middle; margin-left: 8px"
-                        ></span>
-                    </h1>
-                </header>
-
-                <!-- Pool not enabled -->
-                <div v-if="!poolData.enabled" class="status-card" style="text-align: center; padding: 48px 24px">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="48"
-                        height="48"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="var(--text-secondary)"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        style="margin-bottom: 16px; opacity: 0.5"
-                    >
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-                    </svg>
-                    <p style="color: var(--text-secondary); font-size: 1.1rem; margin: 0">{{ t("poolNotEnabled") }}</p>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px; opacity: 0.7">
-                        {{ t("poolNotEnabledHint") }}
-                    </p>
-                </div>
-
-                <!-- Pool enabled content -->
-                <template v-else>
-                    <!-- Overview Stats -->
-                    <div class="dashboard-grid">
-                        <!-- Pool Health -->
-                        <div class="status-card">
-                            <h3 class="card-title">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="18"
-                                    height="18"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    style="margin-right: 8px; vertical-align: text-bottom"
-                                >
-                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                                </svg>
-                                {{ t("poolHealth") }}
-                            </h3>
-                            <div class="pool-stats-row">
-                                <div class="pool-stat-item">
-                                    <span class="pool-stat-num status-ok">{{ poolData.stats.healthy }}</span>
-                                    <span class="pool-stat-label">{{ t("poolHealthy") }}</span>
-                                </div>
-                                <div class="pool-stat-item">
-                                    <span class="pool-stat-num status-warning">{{ poolData.stats.resting }}</span>
-                                    <span class="pool-stat-label">{{ t("poolResting") }}</span>
-                                </div>
-                                <div class="pool-stat-item">
-                                    <span class="pool-stat-num status-error">{{ poolData.stats.retired }}</span>
-                                    <span class="pool-stat-label">{{ t("poolRetired") }}</span>
-                                </div>
-                                <div class="pool-stat-item">
-                                    <span class="pool-stat-num" style="color: var(--text-secondary)">{{
-                                        poolData.stats.disconnected
-                                    }}</span>
-                                    <span class="pool-stat-label">{{ t("poolDisconnected") }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Batch Info -->
-                        <div class="status-card">
-                            <h3 class="card-title">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="18"
-                                    height="18"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    style="margin-right: 8px; vertical-align: text-bottom"
-                                >
-                                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                                    <polyline points="2 17 12 22 22 17"></polyline>
-                                    <polyline points="2 12 12 17 22 12"></polyline>
-                                </svg>
-                                {{ t("poolBatchInfo") }}
-                            </h3>
-                            <div class="status-list">
-                                <div class="status-item">
-                                    <span class="label">{{ t("poolTotalSlots") }}</span>
-                                    <span class="value">{{ poolData.stats.total }}</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="label">{{ t("poolActiveBatch") }}</span>
-                                    <span class="value">#{{ poolData.stats.activeBatch }}</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="label">{{ t("poolBatchSize") }}</span>
-                                    <span class="value">{{ poolData.stats.batchSize }}</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="label">{{ t("poolTotalBatches") }}</span>
-                                    <span class="value">{{ poolData.stats.totalBatches }}</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="label">{{ t("poolPendingSwaps") }}</span>
-                                    <span class="value" :class="poolData.pendingSwaps > 0 ? 'status-warning' : ''">{{
-                                        poolData.pendingSwaps
-                                    }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Pool Config -->
-                        <div class="status-card">
-                            <h3 class="card-title">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="18"
-                                    height="18"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    style="margin-right: 8px; vertical-align: text-bottom"
-                                >
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path
-                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-                                    ></path>
-                                </svg>
-                                {{ t("poolConfig") }}
-                            </h3>
-                            <div class="status-list">
-                                <div class="status-item">
-                                    <span class="label">{{ t("poolStickyThreshold") }}</span>
-                                    <span class="value">{{ poolData.stickyThreshold }}</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="label">{{ t("poolStickySessions") }}</span>
-                                    <span class="value">{{ poolData.stickySessionCount }}</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="label">{{ t("poolRestDuration") }}</span>
-                                    <span class="value">{{ poolData.restDurationMinutes }}min</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Slot Visualization -->
-                    <div class="full-width-section">
-                        <div class="status-card">
-                            <h3 class="card-title">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="18"
-                                    height="18"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    style="margin-right: 8px; vertical-align: text-bottom"
-                                >
-                                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-                                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-                                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-                                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-                                </svg>
-                                {{ t("poolSlots") }}
-                                <span
-                                    style="
-                                        font-weight: normal;
-                                        font-size: 0.8em;
-                                        color: var(--text-secondary);
-                                        text-transform: none;
-                                        letter-spacing: 0;
-                                        margin-left: 8px;
-                                    "
-                                >
-                                    ({{ activePoolSlots.length }} {{ t("poolActive") }}
-                                    <template v-if="retiredPoolSlots.length > 0">
-                                        , {{ retiredPoolSlots.length }} {{ t("poolRetiredLabel") }}
-                                    </template>
-                                    )
-                                </span>
-                            </h3>
-                            <div class="pool-slot-grid">
-                                <el-tooltip
-                                    v-for="slot in poolData.slots"
-                                    :key="`${slot.authIndex}-${slot.status}`"
-                                    :content="getSlotTooltip(slot)"
-                                    placement="top"
-                                    effect="dark"
-                                    :hide-after="0"
-                                    raw-content
-                                >
-                                    <div class="pool-slot-tile" :class="getSlotClass(slot)">
-                                        <span class="pool-slot-index">#{{ slot.authIndex }}</span>
-                                        <span class="pool-slot-status-dot" :class="getSlotDotClass(slot)"></span>
-                                        <span v-if="slot.status === 'retired'" class="pool-slot-timer">
-                                            {{ formatRecoveryTime(slot.recoveryRemainingMinutes) }}
-                                        </span>
-                                        <span v-else-if="slot.restingRemaining > 0" class="pool-slot-timer">
-                                            {{ slot.restingRemaining }}s
-                                        </span>
-                                    </div>
-                                </el-tooltip>
-                            </div>
-                        </div>
-                    </div>
-                </template>
             </div>
 
             <!-- SETTINGS VIEW -->
@@ -1849,10 +1342,8 @@ const state = reactive({
     activeContextsCount: 0,
     apiKeySource: "",
     browserConnected: false,
-    currentAuthIndex: -1,
     currentLang: I18n.getLang(),
     debugModeEnabled: false,
-    failureCount: 0,
     floatingActionsExpanded: false,
     forceThinkingEnabled: false,
     forceUrlContextEnabled: false,
@@ -1902,7 +1393,6 @@ const state = reactive({
     streamingModeReal: false,
 
     // theme: handled by useTheme
-    usageCount: 0,
 });
 
 const browserConnectedClass = computed(() => {
@@ -1920,19 +1410,6 @@ const browserConnectedText = computed(() => {
 });
 
 // Total scanned accounts count
-const totalScannedCount = computed(() => state.accountDetails.length);
-
-// Deduped available accounts count (excluding duplicates and invalid)
-const dedupedAvailableCount = computed(() => {
-    return state.accountDetails.filter(acc => !acc.isDuplicate && !acc.isInvalid).length;
-});
-
-// Active contexts display (e.g., "1 / 3" or "1 / ∞")
-const activeContextsDisplay = computed(() => {
-    const active = state.activeContextsCount;
-    const max = state.maxContexts;
-    return max === 0 ? `${active} / ∞` : `${active} / ${max}`;
-});
 
 const isBusy = computed(() => state.isSwitchingAccount || state.isSystemBusy);
 
@@ -2211,31 +1688,9 @@ const batchDownloadAccounts = async () => {
     }
 };
 
-const currentAccountName = computed(() => {
-    if (state.currentAuthIndex < 0) {
-        return t("noActiveAccount");
-    }
-    const account = state.accountDetails.find(acc => acc.index === state.currentAuthIndex);
-    return account ? getAccountDisplayName(account) : t("noActiveAccount");
-});
-
-const currentAccountNameClass = computed(() => {
-    if (state.currentAuthIndex < 0) {
-        return "status-error";
-    }
-    const account = state.accountDetails.find(acc => acc.index === state.currentAuthIndex);
-    return account ? "" : "status-error";
-});
-
 const serviceConnectedClass = computed(() => (state.serviceConnected ? "status-ok" : "status-error"));
 
 const serviceConnectedText = computed(() => (state.serviceConnected ? t("running") : t("disconnected")));
-
-const apiKeySourceText = computed(() => {
-    const key = state.apiKeySource ? state.apiKeySource.toLowerCase() : "";
-    const translated = key ? t(key) : "";
-    return translated === key ? state.apiKeySource : translated || state.apiKeySource;
-});
 
 // App version from build-time injection
 const appVersion = computed(() => {
@@ -2538,56 +1993,6 @@ const handleStreamingModeBeforeChange = async () => {
 };
 
 // Switch account by index
-const switchAccountByIndex = targetIndex => {
-    if (state.currentAuthIndex === targetIndex) {
-        ElMessage.warning(t("alreadyCurrentAccount"));
-        return;
-    }
-
-    const targetAccount = state.accountDetails.find(acc => acc.index === targetIndex);
-    const accountSuffix = targetAccount ? ` (${getAccountDisplayName(targetAccount)})` : "";
-
-    ElMessageBox.confirm(`${t("confirmSwitch")} #${targetIndex}${accountSuffix}?`, {
-        cancelButtonText: t("cancel"),
-        confirmButtonText: t("ok"),
-        lockScroll: false,
-        type: "warning",
-    })
-        .then(async () => {
-            const notification = ElNotification({
-                duration: 0,
-                message: t("switchingAccountNotice"),
-                title: t("warningTitle"),
-                type: "warning",
-            });
-            state.isSwitchingAccount = true;
-            try {
-                const res = await fetch("/api/accounts/current", {
-                    body: JSON.stringify({ targetIndex }),
-                    headers: { "Content-Type": "application/json" },
-                    method: "PUT",
-                });
-                const data = await res.json();
-                const message = t(data.message, data);
-                if (res.ok) {
-                    ElMessage.success(message);
-                } else {
-                    ElMessage.error(message);
-                }
-            } catch (err) {
-                ElMessage.error(t("settingFailed", { message: err.message || err }));
-            } finally {
-                state.isSwitchingAccount = false;
-                notification.close();
-                updateContent();
-            }
-        })
-        .catch(e => {
-            if (e !== "cancel") {
-                console.error(e);
-            }
-        });
-};
 
 const copyText = async text => {
     try {
@@ -2617,7 +2022,6 @@ const updateStatus = data => {
     state.forceWebSearchEnabled = isEnabled(data.status.forceWebSearch);
     state.forceUrlContextEnabled = isEnabled(data.status.forceUrlContext);
     state.debugModeEnabled = isEnabled(data.status.debugMode);
-    state.currentAuthIndex = data.status.currentAuthIndex;
     state.accountDetails = data.status.accountDetails || [];
     state.activeContextsCount = data.status.activeContextsCount || 0;
     state.maxContexts = data.status.maxContexts ?? 1;
@@ -2631,8 +2035,6 @@ const updateStatus = data => {
     }
     state.browserConnected = data.status.browserConnected;
     state.apiKeySource = data.status.apiKeySource;
-    state.usageCount = data.status.usageCount;
-    state.failureCount = data.status.failureCount;
     state.logCount = data.logCount || 0;
     state.logMaxCount = data.status.logMaxCount || 100;
     state.logs = data.logs || "";
@@ -3527,18 +2929,8 @@ watchEffect(() => {
         background: var(--bg-list-item-hover);
     }
 
-    &.is-current {
-        border-color: @success-color;
-        background: rgba(var(--color-success-rgb), 0.25);
-    }
-
     &.is-selected {
         background: rgba(var(--color-primary-rgb), 0.25); // Darker blue background for selected
-    }
-
-    &.is-current.is-selected {
-        background: rgba(var(--color-primary-rgb), 0.25); // Use blue background like selected
-        border: 1px solid @success-color;
     }
 }
 
@@ -3579,17 +2971,6 @@ watchEffect(() => {
     }
 }
 
-.current-badge {
-    font-size: 0.75rem;
-    padding: 2px 8px;
-    background: @success-color;
-    color: @text-on-primary;
-    border-radius: 12px;
-    flex-shrink: 0;
-    margin-left: 0;
-    margin-right: 6px;
-}
-
 .expired-badge {
     font-size: 0.75rem;
     padding: 2px 8px;
@@ -3622,30 +3003,6 @@ watchEffect(() => {
         &:hover:not(:disabled) {
             border-color: @primary-color;
             color: @primary-color;
-        }
-
-        &.btn-switch:hover:not(:disabled) {
-            border-color: @success-color;
-            color: @success-color;
-        }
-
-        &.btn-switch.is-active {
-            background-color: @background-white;
-            border-color: @success-color;
-            color: @success-color;
-            opacity: 1 !important;
-            cursor: not-allowed;
-        }
-
-        &.btn-switch.is-fast {
-            color: #f59e0b;
-            border-color: #fcd34d;
-        }
-
-        &.btn-switch.is-fast:hover:not(:disabled) {
-            border-color: @success-color;
-            color: @success-color;
-            background-color: @background-white;
         }
 
         &:disabled {
