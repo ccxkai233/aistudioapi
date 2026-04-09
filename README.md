@@ -55,9 +55,15 @@
 
 ### 🐋 Docker 部署
 
-使用 Docker 部署，结合 Nginx 或直接暴露端口。
+使用 Docker 进行部署，提供原生的容器化环境隔离。请在本地执行构建。
 
-**命令一键启动：**
+**1. 本地构建镜像：**
+
+```bash
+docker build -t aistudio-to-api .
+```
+
+**2. 运行容器：**
 
 ```bash
 docker run -d \
@@ -66,7 +72,7 @@ docker run -d \
   -v /path/to/auth:/app/configs/auth \
   -e CONCURRENCY_MODE=pool \
   --restart unless-stopped \
-  ghcr.io/ibuhub/aistudio-to-api:latest
+  aistudio-to-api
 ```
 
 > 💡 部署完成后访问 `http://localhost:7860`。可在监控首页利用内置的 **VNC 登录** 功能进行可视化账号录入，录入的账号将自动加载至账号池。

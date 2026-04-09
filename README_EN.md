@@ -55,9 +55,15 @@ Geared towards high-concurrency environments, this project features a newly desi
 
 ### 🐋 Docker Deployment
 
-For clean infrastructure using Docker (also easily proxied by Nginx).
+For clean infrastructure using Docker, you can build and run the image locally.
 
-**One-line launch:**
+**1. Build Image Locally:**
+
+```bash
+docker build -t aistudio-to-api .
+```
+
+**2. Run Container:**
 
 ```bash
 docker run -d \
@@ -66,7 +72,7 @@ docker run -d \
   -v /path/to/auth:/app/configs/auth \
   -e CONCURRENCY_MODE=pool \
   --restart unless-stopped \
-  ghcr.io/ibuhub/aistudio-to-api:latest
+  aistudio-to-api
 ```
 
 > 💡 After spinning it up visit `http://localhost:7860`. You can inject accounts remotely using the dashboard's built-in **VNC feature**, instantly loading authenticated contexts into the active proxy pools directly from the GUI.
