@@ -911,6 +911,9 @@ class StatusRoutes {
                 activeContextsCount: browserManager.contexts.size,
                 apiKeySource: config.apiKeySource,
                 browserConnected: !!this.serverSystem.connectionRegistry.getConnectionByAuth(currentAuthIndex, false),
+                connectedContextsCount: Array.from(browserManager.contexts.keys()).filter(
+                    idx => !!this.serverSystem.connectionRegistry.getConnectionByAuth(idx, false)
+                ).length,
                 currentAccountName,
                 currentAuthIndex,
                 debugMode: LoggingService.isDebugEnabled(),

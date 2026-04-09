@@ -1342,6 +1342,7 @@ const state = reactive({
     activeContextsCount: 0,
     apiKeySource: "",
     browserConnected: false,
+    connectedContextsCount: 0,
     currentLang: I18n.getLang(),
     debugModeEnabled: false,
     floatingActionsExpanded: false,
@@ -1399,12 +1400,18 @@ const browserConnectedClass = computed(() => {
     if (state.isSystemBusy) {
         return "status-warning";
     }
-    return state.browserConnected ? "status-ok" : "status-error";
+    // In pool mode, consider connected if any context is connected
+    const connected = state.connectedContextsCount > 0 || state.browserConnected;
+    return connected ? "status-ok" : "status-error";
 });
 
 const browserConnectedText = computed(() => {
     if (state.isSystemBusy) {
         return t("connecting");
+    }
+    // In pool mode, show connected/total count
+    if (state.activeContextsCount > 1) {
+        return `${state.connectedContextsCount} / ${state.activeContextsCount}`;
     }
     return state.browserConnected ? t("running") : t("disconnected");
 });
@@ -2034,6 +2041,7 @@ const updateStatus = data => {
         }
     }
     state.browserConnected = data.status.browserConnected;
+    state.connectedContextsCount = data.status.connectedContextsCount || 0;
     state.apiKeySource = data.status.apiKeySource;
     state.logCount = data.logCount || 0;
     state.logMaxCount = data.status.logMaxCount || 100;
