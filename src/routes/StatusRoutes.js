@@ -168,6 +168,32 @@ class StatusRoutes {
             res.json(this._getStatusData());
         });
 
+        // Pool status endpoint (pool mode only)
+        app.get("/api/pool/status", isAuthenticated, (req, res) => {
+            const loadBalancer = this.serverSystem.loadBalancer;
+            if (!loadBalancer) {
+                return res.json({
+                    enabled: false,
+                    message: "Pool mode is not enabled (CONCURRENCY_MODE=single)",
+                });
+            }
+
+            const stats = loadBalancer.getPoolStats();
+            const slots = loadBalancer.getPoolStatus();
+
+            res.json({
+                enabled: true,
+                pendingSwaps: this.serverSystem._pendingSwaps.size,
+                restDurationMinutes: this.config.concurrencyMode === "pool" ? this.config.restDurationMinutes : null,
+                retiredCount: loadBalancer.retiredMap.size,
+                retiredIndices: [...loadBalancer.retiredMap.keys()],
+                slots,
+                stats,
+                stickySessionCount: loadBalancer.stickyMap.size,
+                stickyThreshold: this.config.stickyThreshold,
+            });
+        });
+
         app.put("/api/accounts/current", isAuthenticated, async (req, res) => {
             try {
                 if (this._rejectIfSystemBusy(res)) return;
@@ -877,7 +903,7 @@ class StatusRoutes {
                 ? `${requestHandler.failureCount} / ${config.failureThreshold}`
                 : requestHandler.failureCount;
 
-        return {
+        const result = {
             logCount: displayLogs.length,
             logs: displayLogs.join("\n"),
             status: {
@@ -909,6 +935,24 @@ class StatusRoutes {
                 usageCount,
             },
         };
+
+        // Include pool status if LoadBalancer is active
+        const loadBalancer = this.serverSystem.loadBalancer;
+        if (loadBalancer) {
+            const poolStats = loadBalancer.getPoolStats();
+            result.status.pool = {
+                concurrencyMode: "pool",
+                healthy: poolStats.healthy,
+                resting: poolStats.resting,
+                total: poolStats.total,
+            };
+        } else {
+            result.status.pool = {
+                concurrencyMode: "single",
+            };
+        }
+
+        return result;
     }
 }
 

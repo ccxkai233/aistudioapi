@@ -21,6 +21,7 @@ const ConnectionRegistry = require("./ConnectionRegistry");
 const RequestHandler = require("./RequestHandler");
 const ConfigLoader = require("../utils/ConfigLoader");
 const WebRoutes = require("../routes/WebRoutes");
+const LoadBalancer = require("./LoadBalancer");
 
 /**
  * Proxy Server System
@@ -95,13 +96,22 @@ class ProxyServerSystem extends EventEmitter {
         // Set ConnectionRegistry reference in BrowserManager to avoid circular dependency
         this.browserManager.setConnectionRegistry(this.connectionRegistry);
 
+        // Create LoadBalancer for pool mode concurrency
+        this.loadBalancer = null;
+        this._pendingSwaps = new Set(); // Track in-progress pool account swaps
+        if (this.config.concurrencyMode === "pool") {
+            this.loadBalancer = new LoadBalancer(this.logger, this.config, this.connectionRegistry);
+            this.logger.info("[System] Pool concurrency mode enabled - LoadBalancer created.");
+        }
+
         this.requestHandler = new RequestHandler(
             this,
             this.connectionRegistry,
             this.logger,
             this.browserManager,
             this.config,
-            this.authSource
+            this.authSource,
+            this.loadBalancer
         );
 
         this.httpServer = null;
@@ -178,6 +188,25 @@ class ProxyServerSystem extends EventEmitter {
             // Activate first ready context (fast switch since already preloaded)
             await this.browserManager.launchOrSwitchContext(firstReady);
             this.logger.info(`[System] ✅ Successfully activated account #${firstReady}!`);
+
+            // In pool mode, update the LoadBalancer with all ready contexts
+            if (this.loadBalancer) {
+                const readyIndices = Array.from(this.browserManager.contexts.keys());
+                this.loadBalancer.updatePool(readyIndices);
+                this.logger.info(`[System] LoadBalancer pool initialized with accounts: [${readyIndices.join(", ")}]`);
+
+                // Start periodic recovery timer for retired accounts
+                const recoveryCheckMs = 10 * 60 * 1000; // Check every 10 minutes
+                this._retireRecoveryInterval = setInterval(() => {
+                    this._recoverRetiredAccounts().catch(err => {
+                        this.logger.error(`[Pool] Retirement recovery check failed: ${err.message}`);
+                    });
+                }, recoveryCheckMs);
+                const recoveryHours = (this.loadBalancer.retireRecoveryMs / 3600000).toFixed(1);
+                this.logger.info(
+                    `[System] Retirement recovery timer started (check every 10min, recover after ${recoveryHours}h)`
+                );
+            }
         } catch (error) {
             this.logger.error(`[System] ❌ Startup failed: ${error.message}`);
         } finally {
@@ -605,10 +634,173 @@ class ProxyServerSystem extends EventEmitter {
     }
 
     /**
+     * Swap a retired pool account with a reserve account.
+     * Called asynchronously when an account is retired due to 429.
+     * Finds the next available reserve, initializes its browser context,
+     * adds it to the LoadBalancer, and cleans up the retired context.
+     *
+     * @param {number} retiredAuthIndex - The auth index that was retired
+     */
+    async swapPoolAccount(retiredAuthIndex) {
+        if (!this.loadBalancer) return;
+
+        // Prevent duplicate swaps for the same retired account
+        if (this._pendingSwaps.has(retiredAuthIndex)) {
+            this.logger.debug(`[Pool] Swap already in progress for retired account #${retiredAuthIndex}, skipping`);
+            return;
+        }
+        this._pendingSwaps.add(retiredAuthIndex);
+
+        try {
+            // Find reserve accounts (not active in pool, not retired)
+            const allIndices = this.authSource.getRotationIndices();
+            const reserveIndices = this.loadBalancer.getReserveIndices(allIndices);
+
+            if (reserveIndices.length === 0) {
+                this.logger.warn(
+                    `[Pool] No reserve accounts available to replace retired #${retiredAuthIndex}. ` +
+                        `Active: ${this.loadBalancer.slots.length}, Retired: ${this.loadBalancer.retiredMap.size}, ` +
+                        `Total auth: ${allIndices.length}`
+                );
+                return;
+            }
+
+            const newAuthIndex = reserveIndices[0];
+            this.logger.info(
+                `[Pool] 🔄 Swapping retired #${retiredAuthIndex} → reserve #${newAuthIndex} ` +
+                    `(${reserveIndices.length} reserves available)`
+            );
+
+            // Initialize browser context for the reserve account
+            const contextReady = this.browserManager.contexts.has(newAuthIndex);
+            if (!contextReady) {
+                const success = await this.browserManager.initializeSingleContext(newAuthIndex);
+                if (!success) {
+                    this.logger.error(`[Pool] Failed to initialize context for reserve #${newAuthIndex}`);
+                    // Try next reserve if available
+                    if (reserveIndices.length > 1) {
+                        this.logger.info(`[Pool] Will attempt next reserve account...`);
+                        this._pendingSwaps.delete(retiredAuthIndex);
+                        return this.swapPoolAccount(retiredAuthIndex);
+                    }
+                    return;
+                }
+            }
+
+            // Wait for WebSocket connection to be established
+            const wsTimeout = 15000; // 15 seconds
+            const startTime = Date.now();
+            while (Date.now() - startTime < wsTimeout) {
+                const conn = this.connectionRegistry.getConnectionByAuth(newAuthIndex, false);
+                if (conn && conn.readyState === 1) break;
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            const conn = this.connectionRegistry.getConnectionByAuth(newAuthIndex, false);
+            if (!conn || conn.readyState !== 1) {
+                this.logger.error(
+                    `[Pool] WebSocket not established for reserve #${newAuthIndex} within ${wsTimeout}ms`
+                );
+                return;
+            }
+
+            // Add the new account to the LoadBalancer pool
+            this.loadBalancer.addSlot(newAuthIndex);
+            this.logger.info(
+                `[Pool] ✅ Reserve #${newAuthIndex} added to pool. Active: ${this.loadBalancer.slots.length}`
+            );
+
+            // Clean up the retired account's context after a delay
+            // to let any in-flight requests complete
+            setTimeout(async () => {
+                try {
+                    this.logger.info(`[Pool] Cleaning up retired account #${retiredAuthIndex} context...`);
+                    this.connectionRegistry.closeMessageQueuesForAuth(retiredAuthIndex, "account_retired_429");
+                    await this.browserManager.closeContext(retiredAuthIndex);
+                    this.connectionRegistry.closeConnectionByAuth(retiredAuthIndex);
+                    this.logger.info(`[Pool] ✅ Retired account #${retiredAuthIndex} context cleaned up.`);
+                } catch (cleanupError) {
+                    this.logger.warn(`[Pool] Failed to clean up retired #${retiredAuthIndex}: ${cleanupError.message}`);
+                }
+            }, 30000); // 30 second delay for in-flight requests
+        } catch (error) {
+            this.logger.error(`[Pool] Account swap failed for retired #${retiredAuthIndex}: ${error.message}`);
+        } finally {
+            this._pendingSwaps.delete(retiredAuthIndex);
+        }
+    }
+
+    /**
+     * Periodic check: recover retired accounts that have passed their recovery window.
+     * Recovered accounts are re-initialized and added back to the pool at the end.
+     */
+    async _recoverRetiredAccounts() {
+        if (!this.loadBalancer) return;
+
+        const recoverable = this.loadBalancer.getRecoverableIndices();
+        if (recoverable.length === 0) return;
+
+        this.logger.info(
+            `[Pool] ♻️ Recovery check: ${recoverable.length} account(s) eligible for recovery: [${recoverable.join(", ")}]`
+        );
+
+        for (const authIndex of recoverable) {
+            // Verify auth file still exists
+            if (
+                !this.authSource.getRotationIndices().includes(authIndex) &&
+                !this.authSource.availableIndices.includes(authIndex)
+            ) {
+                this.logger.warn(`[Pool] Skipping recovery for #${authIndex}: auth file no longer exists`);
+                this.loadBalancer.unretire(authIndex);
+                continue;
+            }
+
+            this.loadBalancer.unretire(authIndex);
+
+            // Initialize browser context if needed
+            if (!this.browserManager.contexts.has(authIndex)) {
+                const success = await this.browserManager.initializeSingleContext(authIndex);
+                if (!success) {
+                    this.logger.error(`[Pool] Recovery failed for #${authIndex}: could not initialize context`);
+                    continue;
+                }
+            }
+
+            // Wait for WebSocket connection
+            const wsTimeout = 15000;
+            const startTime = Date.now();
+            while (Date.now() - startTime < wsTimeout) {
+                const conn = this.connectionRegistry.getConnectionByAuth(authIndex, false);
+                if (conn && conn.readyState === 1) break;
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            const conn = this.connectionRegistry.getConnectionByAuth(authIndex, false);
+            if (!conn || conn.readyState !== 1) {
+                this.logger.error(`[Pool] Recovery WebSocket timeout for #${authIndex}`);
+                continue;
+            }
+
+            // Add to pool at the end
+            this.loadBalancer.addSlot(authIndex);
+            this.logger.info(
+                `[Pool] ✅ Account #${authIndex} recovered and added to pool (end). Active: ${this.loadBalancer.slots.length}`
+            );
+        }
+    }
+
+    /**
      * Gracefully shutdown the server system
      */
     async shutdown() {
         this.logger.info("[System] Shutting down server system...");
+
+        // Clear retirement recovery interval
+        if (this._retireRecoveryInterval) {
+            clearInterval(this._retireRecoveryInterval);
+            this._retireRecoveryInterval = null;
+            this.logger.info("[System] Stopped retirement recovery interval");
+        }
 
         // Clear stale queue cleanup interval
         if (this.staleQueueCleanupInterval) {

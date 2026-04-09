@@ -23,6 +23,7 @@ class ConfigLoader {
             apiKeys: [],
             apiKeySource: "Not set",
             browserExecutablePath: null,
+            concurrencyMode: "pool",
             enableAuthUpdate: true,
             failureThreshold: 3,
             forceThinking: false,
@@ -33,7 +34,11 @@ class ConfigLoader {
             immediateSwitchStatusCodes: [429, 503],
             maxContexts: 1,
             maxRetries: 3,
+            poolBatchSize: 0,
+            poolBatchSwitchRatio: 0.5,
+            restDurationMinutes: 1,
             retryDelay: 2000,
+            stickyThreshold: 10,
             streamingMode: "real",
             switchOnUses: 40,
             wsPort: 9998,
@@ -73,6 +78,32 @@ class ConfigLoader {
         if (process.env.MAX_CONTEXTS) {
             const parsed = parseInt(process.env.MAX_CONTEXTS, 10);
             config.maxContexts = Number.isFinite(parsed) ? Math.max(0, parsed) : config.maxContexts;
+        }
+        if (process.env.CONCURRENCY_MODE) {
+            const mode = process.env.CONCURRENCY_MODE.toLowerCase();
+            if (mode === "single" || mode === "pool") {
+                config.concurrencyMode = mode;
+            } else {
+                this.logger.warn(`[Config] Invalid CONCURRENCY_MODE '${mode}', using default 'pool'.`);
+            }
+        }
+        if (process.env.STICKY_THRESHOLD) {
+            const parsed = parseInt(process.env.STICKY_THRESHOLD, 10);
+            config.stickyThreshold = Number.isFinite(parsed) ? Math.max(1, parsed) : config.stickyThreshold;
+        }
+        if (process.env.REST_DURATION_MINUTES) {
+            const parsed = parseInt(process.env.REST_DURATION_MINUTES, 10);
+            config.restDurationMinutes = Number.isFinite(parsed) ? Math.max(1, parsed) : config.restDurationMinutes;
+        }
+        if (process.env.POOL_BATCH_SIZE) {
+            const parsed = parseInt(process.env.POOL_BATCH_SIZE, 10);
+            config.poolBatchSize = Number.isFinite(parsed) ? Math.max(0, parsed) : config.poolBatchSize;
+        }
+        if (process.env.POOL_BATCH_SWITCH_RATIO) {
+            const parsed = parseFloat(process.env.POOL_BATCH_SWITCH_RATIO);
+            config.poolBatchSwitchRatio = Number.isFinite(parsed)
+                ? Math.max(0.1, Math.min(1.0, parsed))
+                : config.poolBatchSwitchRatio;
         }
         if (process.env.CAMOUFOX_EXECUTABLE_PATH) config.browserExecutablePath = process.env.CAMOUFOX_EXECUTABLE_PATH;
         if (process.env.API_KEYS) {
@@ -162,6 +193,11 @@ class ConfigLoader {
         this.logger.info(`  Force URL Context: ${config.forceUrlContext}`);
         this.logger.info(`  Auto Update Auth: ${config.enableAuthUpdate}`);
         this.logger.info(`  Max Contexts: ${config.maxContexts === 0 ? "Unlimited" : config.maxContexts}`);
+        this.logger.info(`  Concurrency Mode: ${config.concurrencyMode}`);
+        if (config.concurrencyMode === "pool") {
+            this.logger.info(`  Sticky Threshold: ${config.stickyThreshold}`);
+            this.logger.info(`  Rest Duration: ${config.restDurationMinutes} minutes`);
+        }
         this.logger.info(
             `  Usage-based Switch Threshold: ${
                 config.switchOnUses > 0 ? `Switch after every ${config.switchOnUses} requests` : "Disabled"

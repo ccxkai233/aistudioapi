@@ -56,6 +56,29 @@
                 </button>
                 <button
                     class="menu-item"
+                    :class="{ active: activeTab === 'pool' }"
+                    :title="t('poolStatus')"
+                    @click="switchTab('pool')"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                    </svg>
+                </button>
+                <button
+                    class="menu-item"
                     :class="{ active: activeTab === 'logs' }"
                     :title="t('realtimeLogs')"
                     @click="switchTab('logs')"
@@ -882,6 +905,256 @@
                 </div>
             </div>
 
+            <!-- POOL STATUS VIEW -->
+            <div v-if="activeTab === 'pool'" class="view-container">
+                <header class="page-header">
+                    <h1>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            style="vertical-align: text-bottom"
+                        >
+                            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                            <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                        </svg>
+                        {{ t("poolStatus") }}
+                        <span
+                            class="dot"
+                            :class="poolData.enabled ? 'status-running' : ''"
+                            style="display: inline-block; vertical-align: middle; margin-left: 8px"
+                        ></span>
+                    </h1>
+                </header>
+
+                <!-- Pool not enabled -->
+                <div v-if="!poolData.enabled" class="status-card" style="text-align: center; padding: 48px 24px">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="48"
+                        height="48"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="var(--text-secondary)"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        style="margin-bottom: 16px; opacity: 0.5"
+                    >
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                    </svg>
+                    <p style="color: var(--text-secondary); font-size: 1.1rem; margin: 0">{{ t("poolNotEnabled") }}</p>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px; opacity: 0.7">
+                        {{ t("poolNotEnabledHint") }}
+                    </p>
+                </div>
+
+                <!-- Pool enabled content -->
+                <template v-else>
+                    <!-- Overview Stats -->
+                    <div class="dashboard-grid">
+                        <!-- Pool Health -->
+                        <div class="status-card">
+                            <h3 class="card-title">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    style="margin-right: 8px; vertical-align: text-bottom"
+                                >
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                </svg>
+                                {{ t("poolHealth") }}
+                            </h3>
+                            <div class="pool-stats-row">
+                                <div class="pool-stat-item">
+                                    <span class="pool-stat-num status-ok">{{ poolData.stats.healthy }}</span>
+                                    <span class="pool-stat-label">{{ t("poolHealthy") }}</span>
+                                </div>
+                                <div class="pool-stat-item">
+                                    <span class="pool-stat-num status-warning">{{ poolData.stats.resting }}</span>
+                                    <span class="pool-stat-label">{{ t("poolResting") }}</span>
+                                </div>
+                                <div class="pool-stat-item">
+                                    <span class="pool-stat-num status-error">{{ poolData.stats.retired }}</span>
+                                    <span class="pool-stat-label">{{ t("poolRetired") }}</span>
+                                </div>
+                                <div class="pool-stat-item">
+                                    <span class="pool-stat-num" style="color: var(--text-secondary)">{{
+                                        poolData.stats.disconnected
+                                    }}</span>
+                                    <span class="pool-stat-label">{{ t("poolDisconnected") }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Batch Info -->
+                        <div class="status-card">
+                            <h3 class="card-title">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    style="margin-right: 8px; vertical-align: text-bottom"
+                                >
+                                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                                    <polyline points="2 17 12 22 22 17"></polyline>
+                                    <polyline points="2 12 12 17 22 12"></polyline>
+                                </svg>
+                                {{ t("poolBatchInfo") }}
+                            </h3>
+                            <div class="status-list">
+                                <div class="status-item">
+                                    <span class="label">{{ t("poolTotalSlots") }}</span>
+                                    <span class="value">{{ poolData.stats.total }}</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">{{ t("poolActiveBatch") }}</span>
+                                    <span class="value">#{{ poolData.stats.activeBatch }}</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">{{ t("poolBatchSize") }}</span>
+                                    <span class="value">{{ poolData.stats.batchSize }}</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">{{ t("poolTotalBatches") }}</span>
+                                    <span class="value">{{ poolData.stats.totalBatches }}</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">{{ t("poolPendingSwaps") }}</span>
+                                    <span class="value" :class="poolData.pendingSwaps > 0 ? 'status-warning' : ''">{{
+                                        poolData.pendingSwaps
+                                    }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pool Config -->
+                        <div class="status-card">
+                            <h3 class="card-title">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    style="margin-right: 8px; vertical-align: text-bottom"
+                                >
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path
+                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                                    ></path>
+                                </svg>
+                                {{ t("poolConfig") }}
+                            </h3>
+                            <div class="status-list">
+                                <div class="status-item">
+                                    <span class="label">{{ t("poolStickyThreshold") }}</span>
+                                    <span class="value">{{ poolData.stickyThreshold }}</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">{{ t("poolStickySessions") }}</span>
+                                    <span class="value">{{ poolData.stickySessionCount }}</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">{{ t("poolRestDuration") }}</span>
+                                    <span class="value">{{ poolData.restDurationMinutes }}min</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Slot Visualization -->
+                    <div class="full-width-section">
+                        <div class="status-card">
+                            <h3 class="card-title">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    style="margin-right: 8px; vertical-align: text-bottom"
+                                >
+                                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                                </svg>
+                                {{ t("poolSlots") }}
+                                <span
+                                    style="
+                                        font-weight: normal;
+                                        font-size: 0.8em;
+                                        color: var(--text-secondary);
+                                        text-transform: none;
+                                        letter-spacing: 0;
+                                        margin-left: 8px;
+                                    "
+                                >
+                                    ({{ activePoolSlots.length }} {{ t("poolActive") }}
+                                    <template v-if="retiredPoolSlots.length > 0">
+                                        , {{ retiredPoolSlots.length }} {{ t("poolRetiredLabel") }}
+                                    </template>
+                                    )
+                                </span>
+                            </h3>
+                            <div class="pool-slot-grid">
+                                <el-tooltip
+                                    v-for="slot in poolData.slots"
+                                    :key="`${slot.authIndex}-${slot.status}`"
+                                    :content="getSlotTooltip(slot)"
+                                    placement="top"
+                                    effect="dark"
+                                    :hide-after="0"
+                                    raw-content
+                                >
+                                    <div class="pool-slot-tile" :class="getSlotClass(slot)">
+                                        <span class="pool-slot-index">#{{ slot.authIndex }}</span>
+                                        <span class="pool-slot-status-dot" :class="getSlotDotClass(slot)"></span>
+                                        <span v-if="slot.status === 'retired'" class="pool-slot-timer">
+                                            {{ formatRecoveryTime(slot.recoveryRemainingMinutes) }}
+                                        </span>
+                                        <span v-else-if="slot.restingRemaining > 0" class="pool-slot-timer">
+                                            {{ slot.restingRemaining }}s
+                                        </span>
+                                    </div>
+                                </el-tooltip>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
             <!-- SETTINGS VIEW -->
             <div v-if="activeTab === 'settings'" class="view-container">
                 <header class="page-header">
@@ -1595,10 +1868,39 @@ const state = reactive({
     logScrollTop: 0,
     maxContexts: 1,
     maxRetries: 3,
+    // Pool status
+    poolData: {
+        enabled: false,
+        pendingSwaps: 0,
+        restDurationMinutes: 1,
+        retiredCount: 0,
+        retiredIndices: [],
+        slots: [],
+        stats: {
+            activeBatch: 0,
+            batchHealthy: 0,
+            batchResting: 0,
+            batchSize: 0,
+            disconnected: 0,
+            healthy: 0,
+            resting: 0,
+            retired: 0,
+            total: 0,
+            totalBatches: 0,
+        },
+        stickySessionCount: 0,
+        stickyThreshold: 10,
+    },
+
     releaseUrl: null,
-    selectedAccounts: new Set(), // Selected account indices
+
+    selectedAccounts: new Set(),
+
+    // Selected account indices
     serviceConnected: false,
+
     streamingModeReal: false,
+
     // theme: handled by useTheme
     usageCount: 0,
 });
@@ -1633,6 +1935,56 @@ const activeContextsDisplay = computed(() => {
 });
 
 const isBusy = computed(() => state.isSwitchingAccount || state.isSystemBusy);
+
+// Pool computed
+const activePoolSlots = computed(() => state.poolData.slots.filter(s => s.status === "active"));
+const retiredPoolSlots = computed(() => state.poolData.slots.filter(s => s.status === "retired"));
+
+const getSlotClass = slot => {
+    if (slot.status === "retired") return "pool-slot-retired";
+    if (!slot.healthy) return "pool-slot-resting";
+    if (!slot.connected) return "pool-slot-disconnected";
+    return "pool-slot-healthy";
+};
+
+const getSlotDotClass = slot => {
+    if (slot.status === "retired") return "dot-retired";
+    if (!slot.healthy) return "dot-resting";
+    if (!slot.connected) return "dot-disconnected";
+    return "dot-healthy";
+};
+
+const getSlotTooltip = slot => {
+    const parts = [`<b>Account #${slot.authIndex}</b>`];
+    if (slot.status === "retired") {
+        parts.push(`Status: <span style="color: #e74c3c">Retired (429)</span>`);
+        if (slot.recoveryRemainingMinutes > 0) {
+            parts.push(`Recovery in: ${formatRecoveryTime(slot.recoveryRemainingMinutes)}`);
+        }
+        if (slot.retiredAt) {
+            parts.push(`Retired at: ${new Date(slot.retiredAt).toLocaleString()}`);
+        }
+    } else {
+        const statusHtml = slot.healthy
+            ? '<span style="color: #2ecc71">Healthy</span>'
+            : '<span style="color: #f39c12">Resting</span>';
+        parts.push(`Status: ${statusHtml}`);
+        parts.push(`Connected: ${slot.connected ? "Yes" : "No"}`);
+        if (slot.batch !== null && slot.batch !== undefined) parts.push(`Batch: #${slot.batch}`);
+        if (slot.restingRemaining > 0) parts.push(`Resting: ${slot.restingRemaining}s`);
+    }
+    return parts.join("<br>");
+};
+
+const formatRecoveryTime = minutes => {
+    if (!minutes || minutes <= 0) return "soon";
+    if (minutes >= 60) {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${h}h${m > 0 ? ` ${m}m` : ""}`;
+    }
+    return `${minutes}m`;
+};
 
 const formattedLogs = computed(() => {
     if (!state.logs) return "";
@@ -2322,6 +2674,22 @@ const updateContent = async () => {
     }
 };
 
+let poolTimer = null;
+
+const fetchPoolStatus = async () => {
+    try {
+        const res = await fetch("/api/pool/status");
+        if (!res.ok) {
+            state.poolData.enabled = false;
+            return;
+        }
+        const data = await res.json();
+        Object.assign(state.poolData, data);
+    } catch (err) {
+        console.error("Error fetching pool status:", err.message || err);
+    }
+};
+
 const scheduleNextUpdate = () => {
     if (!isActive) {
         return;
@@ -2690,6 +3058,10 @@ onMounted(() => {
 
     // Expose copyText function globally for tooltip HTML content
     window.__copyEnvVar = text => copyText(text);
+
+    // Pool status polling
+    fetchPoolStatus();
+    poolTimer = setInterval(fetchPoolStatus, 5000);
 });
 
 onBeforeUnmount(() => {
@@ -2699,6 +3071,11 @@ onBeforeUnmount(() => {
     }
     // Clean up global function
     delete window.__copyEnvVar;
+
+    if (poolTimer) {
+        clearInterval(poolTimer);
+        poolTimer = null;
+    }
 });
 
 watchEffect(() => {
@@ -3616,5 +3993,128 @@ watchEffect(() => {
     width: 28px;
     height: 28px;
     border-radius: 4px;
+}
+
+/* ───── Pool Status Tab ───── */
+.pool-stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    text-align: center;
+}
+
+.pool-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.pool-stat-num {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: @font-family-mono;
+    line-height: 1.2;
+}
+
+.pool-stat-label {
+    font-size: 0.75rem;
+    color: @text-secondary;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+.pool-slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+}
+
+.pool-slot-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+    border-radius: 10px;
+    border: 1px solid @border-light;
+    background: @background-light;
+    transition: all 0.2s;
+    position: relative;
+    min-height: 64px;
+    cursor: default;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: @shadow-light;
+    }
+
+    &.pool-slot-healthy {
+        border-color: rgba(var(--color-success-rgb), 0.3);
+        background: rgba(var(--color-success-rgb), 0.06);
+    }
+
+    &.pool-slot-resting {
+        border-color: rgba(var(--color-warning-rgb), 0.3);
+        background: rgba(var(--color-warning-rgb), 0.06);
+    }
+
+    &.pool-slot-retired {
+        border-color: rgba(var(--color-error-rgb), 0.3);
+        background: rgba(var(--color-error-rgb), 0.06);
+    }
+
+    &.pool-slot-disconnected {
+        border-color: @border-color;
+        background: @background-light;
+        opacity: 0.6;
+    }
+}
+
+.pool-slot-index {
+    font-weight: 700;
+    font-size: 0.85rem;
+    font-family: @font-family-mono;
+    color: @text-primary;
+}
+
+.pool-slot-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-top: 4px;
+
+    &.dot-healthy {
+        background: var(--color-success);
+        box-shadow: 0 0 6px var(--color-success);
+    }
+    &.dot-resting {
+        background: var(--color-warning);
+        box-shadow: 0 0 6px var(--color-warning);
+    }
+    &.dot-retired {
+        background: var(--color-error);
+        box-shadow: 0 0 6px var(--color-error);
+    }
+    &.dot-disconnected {
+        background: @border-color;
+    }
+}
+
+.pool-slot-timer {
+    font-size: 0.7rem;
+    font-family: @font-family-mono;
+    color: @text-secondary;
+    margin-top: 2px;
+}
+
+@media (max-width: 599px) {
+    .pool-stats-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .pool-slot-grid {
+        grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+    }
 }
 </style>

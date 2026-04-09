@@ -1453,6 +1453,45 @@ class BrowserManager {
     }
 
     /**
+     * Initialize a single browser context for pool-mode swap operations.
+     * This is a public wrapper for _initializeContext, used when a retired account
+     * needs to be replaced by a reserve account.
+     * @param {number} authIndex - The auth index to initialize
+     * @returns {Promise<boolean>} true if context was successfully initialized
+     */
+    async initializeSingleContext(authIndex) {
+        // Already initialized
+        if (this.contexts.has(authIndex)) {
+            this.logger.debug(`[ContextPool] Context #${authIndex} already exists for swap`);
+            return true;
+        }
+
+        // Being initialized by another task - wait for it
+        if (this.initializingContexts.has(authIndex)) {
+            this.logger.info(`[ContextPool] Context #${authIndex} already being initialized, waiting...`);
+            await this._waitForContextInit(authIndex);
+            return this.contexts.has(authIndex);
+        }
+
+        // Ensure browser is running
+        if (!this.browser) {
+            await this._ensureBrowser();
+        }
+
+        this.initializingContexts.add(authIndex);
+        try {
+            this.logger.info(`[ContextPool] Initializing single context #${authIndex} for pool swap...`);
+            await this._initializeContext(authIndex, true); // background mode
+            this.logger.info(`✅ [ContextPool] Context #${authIndex} ready for pool swap.`);
+            return true;
+        } catch (error) {
+            this.logger.error(`❌ [ContextPool] Failed to init context #${authIndex} for swap: ${error.message}`);
+            return false;
+        }
+        // Note: _initializeContext handles initializingContexts cleanup in its finally block
+    }
+
+    /**
      * Launch browser instance if not already running
      */
     async _ensureBrowser() {

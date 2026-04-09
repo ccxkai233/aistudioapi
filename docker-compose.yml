@@ -1,0 +1,95 @@
+# AIStudioToAPI 高并发池模式 Docker Compose 部署
+# 使用方式:
+#   1. 将 auth 文件放入 ./configs/auth/ 目录 (auth-0.json, auth-1.json, ...)
+#   2. 复制 .env.example 为 .env 并修改配置
+#   3. docker compose up -d --build
+#   4. 访问 http://localhost:7860
+
+services:
+  aistudio-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - CAMOUFOX_URL=${CAMOUFOX_URL:-}
+        - VERSION=${VERSION:-dev}
+
+    container_name: aistudio-api
+
+    restart: unless-stopped
+
+    ports:
+      - "${PORT:-7860}:${PORT:-7860}"
+
+    # 浏览器需要共享内存，多账号池模式需要更多
+    # 每个浏览器上下文约 250-700MB，按账号数量估算
+    # 10个账号建议至少 4GB, 20个建议 8GB
+    shm_size: "4gb"
+
+    # 挂载配置目录（auth文件 + 模型配置）
+    volumes:
+      - ./configs:/app/configs
+      - ./.env:/app/.env:ro
+
+    environment:
+      - NODE_ENV=production
+      - CAMOUFOX_EXECUTABLE_PATH=/app/camoufox-linux/camoufox
+
+      # === 核心配置（也可在 .env 文件中设置）===
+      # 服务端口
+      - PORT=${PORT:-7860}
+      - HOST=0.0.0.0
+
+      # API 密钥
+      - API_KEYS=${API_KEYS:-123456}
+
+      # === 高并发池模式配置 ===
+      # 启用池模式
+      - CONCURRENCY_MODE=${CONCURRENCY_MODE:-pool}
+      # 最大浏览器上下文数（设为0=无限制，或等于你的账号数量）
+      - MAX_CONTEXTS=${MAX_CONTEXTS:-0}
+      # 同IP粘性会话阈值
+      - STICKY_THRESHOLD=${STICKY_THRESHOLD:-10}
+      # 429 后休息时间（分钟）
+      - REST_DURATION_MINUTES=${REST_DURATION_MINUTES:-1}
+
+      # === 请求处理 ===
+      - STREAMING_MODE=${STREAMING_MODE:-real}
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+      - SWITCH_ON_USES=${SWITCH_ON_USES:-40}
+      - FAILURE_THRESHOLD=${FAILURE_THRESHOLD:-3}
+      - IMMEDIATE_SWITCH_STATUS_CODES=${IMMEDIATE_SWITCH_STATUS_CODES:-429,503}
+
+      # === 代理（如果服务器需要代理访问 Google）===
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
+
+      # === 日志 ===
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - TZ=${TZ:-Asia/Shanghai}
+
+    # 安全选项（浏览器自动化需要）
+    security_opt:
+      - seccomp=unconfined
+
+    # 健康检查
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const port = process.env.PORT || 7860; require('http').get('http://localhost:' + port + '/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)}).on('error', () => process.exit(1));",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+    # 日志配置
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
