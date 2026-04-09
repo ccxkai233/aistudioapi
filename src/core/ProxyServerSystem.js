@@ -102,6 +102,16 @@ class ProxyServerSystem extends EventEmitter {
         if (this.config.concurrencyMode === "pool") {
             this.loadBalancer = new LoadBalancer(this.logger, this.config, this.connectionRegistry);
             this.logger.info("[System] Pool concurrency mode enabled - LoadBalancer created.");
+
+            // Wire callback: when background contexts finish initializing, add them to the pool
+            this.browserManager.onContextReady = authIndex => {
+                if (this.loadBalancer) {
+                    this.loadBalancer.addSlot(authIndex);
+                    this.logger.info(
+                        `[System] Background context #${authIndex} added to LoadBalancer pool. Active slots: ${this.loadBalancer.slots.length}`
+                    );
+                }
+            };
         }
 
         this.requestHandler = new RequestHandler(

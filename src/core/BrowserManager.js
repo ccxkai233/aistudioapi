@@ -39,6 +39,10 @@ class BrowserManager {
         this._backgroundPreloadTask = null; // Current background preload task promise (only one at a time)
         this._backgroundPreloadAbort = false; // Flag to signal background task to abort
 
+        // Callback fired when a background context is successfully initialized
+        // Used by ProxyServerSystem to add new slots to LoadBalancer in real-time
+        this.onContextReady = null;
+
         // Legacy single context references (for backward compatibility)
         this.context = null;
         this.page = null;
@@ -1630,6 +1634,16 @@ class BrowserManager {
                 this.logger.info(`[ContextPool] Background preload init context #${authIndex}...`);
                 await this._initializeContext(authIndex, true); // Mark as background task
                 this.logger.info(`✅ [ContextPool] Background context #${authIndex} ready.`);
+                // Notify listener (e.g., LoadBalancer) that a new context is available
+                if (typeof this.onContextReady === "function") {
+                    try {
+                        this.onContextReady(authIndex);
+                    } catch (cbErr) {
+                        this.logger.error(
+                            `[ContextPool] onContextReady callback error for #${authIndex}: ${cbErr.message}`
+                        );
+                    }
+                }
             } catch (error) {
                 // Check if this is an abort error (user deleted the account during initialization or background preload was aborted)
                 const isAbortError = isContextAbortedError(error);
