@@ -507,13 +507,8 @@ class RequestHandler {
      * @returns {{ authIndex: number, slotIndex: number } | null}
      */
     _performPoolRetry(currentTargetAuthIndex, tracker, statusCode = 429) {
-        if (statusCode === 429) {
-            // Permanent removal: retire the account and trigger background swap
-            this._retireAndSwapPoolAccount(currentTargetAuthIndex);
-        } else {
-            // Temporary rest for non-429 errors (503, etc.)
-            this.loadBalancer.markSlotResting(currentTargetAuthIndex);
-        }
+        // Retire the account and trigger background swap for any error code
+        this._retireAndSwapPoolAccount(currentTargetAuthIndex);
 
         const nextSlot = this.loadBalancer.selectNextSlot(currentTargetAuthIndex, tracker.attemptedAuthIndices);
 
@@ -3737,9 +3732,9 @@ class RequestHandler {
 
                     if (count >= this._poolTimeoutThreshold) {
                         this.logger.warn(
-                            `[Pool] ⚠️ Account #${authIndex} hit ${count} consecutive timeouts, marking as RESTING`
+                            `[Pool] ⚠️ Account #${authIndex} hit ${count} consecutive timeouts, retiring and swapping`
                         );
-                        this.loadBalancer.markSlotResting(authIndex);
+                        this._retireAndSwapPoolAccount(authIndex);
                         this._poolTimeoutCounters.delete(authIndex);
                     }
                 }
