@@ -189,8 +189,6 @@ class StatusRoutes {
                 retiredIndices: [...loadBalancer.retiredMap.keys()],
                 slots,
                 stats,
-                stickySessionCount: loadBalancer.stickyMap.size,
-                stickyThreshold: this.config.stickyThreshold,
             });
         });
 

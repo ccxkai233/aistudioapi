@@ -324,12 +324,8 @@
                         </h3>
                         <div class="status-list">
                             <div class="status-item">
-                                <span class="label">{{ t("poolStickyThreshold") }}</span>
-                                <span class="value">{{ state.poolData.stickyThreshold }}</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="label">{{ t("poolStickySessions") }}</span>
-                                <span class="value">{{ state.poolData.stickySessionCount }}</span>
+                                <span class="label">{{ t("poolLoadBalancing") }}</span>
+                                <span class="value">Round-Robin</span>
                             </div>
                             <div class="status-item">
                                 <span class="label">{{ t("poolRestDuration") }}</span>
@@ -1380,8 +1376,6 @@ const state = reactive({
             total: 0,
             totalBatches: 0,
         },
-        stickySessionCount: 0,
-        stickyThreshold: 10,
     },
 
     releaseUrl: null,

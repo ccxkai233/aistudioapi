@@ -1,7 +1,7 @@
 /**
  * File: src/core/LoadBalancer.js
- * Description: High-concurrency load balancer with batch rotation, sticky sessions,
- * round-robin, circuit breaking (429 rest), and automatic failover.
+ * Description: High-concurrency load balancer with batch rotation, round-robin,
+ * circuit breaking (429 rest), and automatic failover.
  *
  * Batch system: accounts are divided into batches. When a configurable ratio of a
  * batch's slots are resting (429), the system auto-rotates to the next batch.
@@ -33,21 +33,12 @@ class AccountSlot {
     }
 }
 
-class StickyInfo {
-    constructor(slotIndex, requestCount = 0) {
-        this.slotIndex = slotIndex;
-        this.requestCount = requestCount;
-        this.lastUsed = Date.now();
-    }
-}
-
 /**
  * LoadBalancer - Distributes requests across account slots with:
  * 1. Batch rotation: divide accounts into batches, rotate when threshold of 429s hit
- * 2. Sticky sessions: same client IP reuses same slot for N requests
- * 3. Round-robin: after sticky threshold, rotate to next healthy slot in batch
- * 4. Circuit breaking: 429-marked slots rest for configurable duration
- * 5. In-request failover: retry on next healthy slot when current returns 429
+ * 2. Pure round-robin: each request goes to the next healthy slot
+ * 3. Circuit breaking: 429-marked slots rest for configurable duration
+ * 4. In-request failover: retry on next healthy slot when current returns 429
  */
 class LoadBalancer {
     constructor(logger, config, connectionRegistry) {
@@ -58,9 +49,6 @@ class LoadBalancer {
         /** @type {AccountSlot[]} */
         this.slots = [];
 
-        /** @type {Map<string, StickyInfo>} */
-        this.stickyMap = new Map();
-
         /** @type {Map<number, number>} Retired auth indices -> retirement timestamp (429'd) */
         this.retiredMap = new Map();
 
@@ -68,7 +56,6 @@ class LoadBalancer {
         this.nextIndex = 0;
 
         // Core configuration
-        this.stickyThreshold = parseInt(process.env.STICKY_THRESHOLD, 10) || 10;
         this.restDurationMs = (parseInt(process.env.REST_DURATION_MINUTES, 10) || 1) * 60 * 1000;
 
         // Batch configuration
@@ -78,8 +65,6 @@ class LoadBalancer {
 
         // Retirement recovery configuration (default 5 hours)
         this.retireRecoveryMs = (parseFloat(process.env.RETIRE_RECOVERY_HOURS) || 5) * 60 * 60 * 1000;
-
-        this._cleanupInterval = setInterval(() => this._cleanupStickyMap(), 10 * 60 * 1000);
     }
 
     // ─── Batch helpers ───
@@ -125,7 +110,6 @@ class LoadBalancer {
             this.currentBatchIndex = nextBatch;
             const newRange = this._getBatchRange(nextBatch);
             this.nextIndex = newRange.start;
-            this.stickyMap.clear();
         }
     }
 
@@ -141,13 +125,6 @@ class LoadBalancer {
         }
         this.slots = newSlots;
 
-        // Clean stale sticky entries
-        const activeSet = new Set(this.slots.map(s => s.authIndex));
-        for (const [ip, info] of this.stickyMap.entries()) {
-            if (info.slotIndex >= this.slots.length || !activeSet.has(this.slots[info.slotIndex]?.authIndex)) {
-                this.stickyMap.delete(ip);
-            }
-        }
         if (this.nextIndex >= this.slots.length) this.nextIndex = 0;
         if (this.currentBatchIndex >= this.totalBatches) this.currentBatchIndex = 0;
 
@@ -157,7 +134,7 @@ class LoadBalancer {
                 : ", batching: disabled";
         this.logger.info(
             `[LoadBalancer] Pool updated: ${this.slots.length} slots [${this.slots.map(s => s.authIndex).join(", ")}], ` +
-                `retired: ${this.retiredMap.size}, sticky: ${this.stickyThreshold}, rest: ${this.restDurationMs / 1000}s${batchInfo}`
+                `retired: ${this.retiredMap.size}, mode: round-robin, rest: ${this.restDurationMs / 1000}s${batchInfo}`
         );
     }
 
@@ -171,14 +148,6 @@ class LoadBalancer {
         const idx = this.slots.findIndex(s => s.authIndex === authIndex);
         if (idx === -1) return;
         this.slots.splice(idx, 1);
-        // Adjust sticky session indices after removal
-        for (const [ip, info] of this.stickyMap.entries()) {
-            if (info.slotIndex === idx) {
-                this.stickyMap.delete(ip);
-            } else if (info.slotIndex > idx) {
-                info.slotIndex--;
-            }
-        }
         if (this.nextIndex >= this.slots.length) this.nextIndex = 0;
         if (this.currentBatchIndex >= this.totalBatches) this.currentBatchIndex = 0;
         this.logger.info(`[LoadBalancer] Removed slot for account #${authIndex}, total: ${this.slots.length}`);
@@ -200,15 +169,6 @@ class LoadBalancer {
 
         this.slots.splice(idx, 1);
         this.retiredMap.set(authIndex, Date.now());
-
-        // Adjust sticky session indices after removal
-        for (const [ip, info] of this.stickyMap.entries()) {
-            if (info.slotIndex === idx) {
-                this.stickyMap.delete(ip);
-            } else if (info.slotIndex > idx) {
-                info.slotIndex--;
-            }
-        }
 
         if (this.nextIndex >= this.slots.length) this.nextIndex = 0;
         if (this.currentBatchIndex >= this.totalBatches) this.currentBatchIndex = 0;
@@ -294,47 +254,22 @@ class LoadBalancer {
 
     /**
      * Select the best slot for a request (main entry point)
-     * @param {string} clientIP
+     * Uses pure round-robin across healthy, connected slots.
      * @returns {{ authIndex: number, slotIndex: number } | null}
      */
-    selectSlot(clientIP) {
+    selectSlot() {
         if (this.slots.length === 0) return null;
 
-        // 1. Sticky session check (must be in active batch)
-        const sticky = this.stickyMap.get(clientIP);
-        if (sticky && sticky.requestCount < this.stickyThreshold) {
-            const slot = this.slots[sticky.slotIndex];
-            if (
-                slot &&
-                slot.isHealthy() &&
-                this._isInActiveBatch(sticky.slotIndex) &&
-                this._hasConnection(slot.authIndex)
-            ) {
-                sticky.requestCount++;
-                sticky.lastUsed = Date.now();
-                this.logger.debug(
-                    `[LoadBalancer] Sticky hit: IP=${clientIP} -> account #${slot.authIndex} ` +
-                        `(${sticky.requestCount}/${this.stickyThreshold})`
-                );
-                return { authIndex: slot.authIndex, slotIndex: sticky.slotIndex };
-            }
-            this.stickyMap.delete(clientIP);
-        } else if (sticky) {
-            this.stickyMap.delete(clientIP);
-        }
-
-        // 2. Round-robin in current batch
+        // 1. Round-robin in current batch
         const result = this._roundRobinInBatch(this.currentBatchIndex);
         if (result) {
-            this.stickyMap.set(clientIP, new StickyInfo(result.slotIndex, 1));
             this.logger.debug(
-                `[LoadBalancer] Round-robin: IP=${clientIP} -> account #${result.authIndex} ` +
-                    `(batch #${this.currentBatchIndex})`
+                `[LoadBalancer] Round-robin: account #${result.authIndex} ` + `(batch #${this.currentBatchIndex})`
             );
             return result;
         }
 
-        // 3. Current batch exhausted — try other batches
+        // 2. Current batch exhausted — try other batches
         if (this.totalBatches > 1) {
             for (let b = 1; b < this.totalBatches; b++) {
                 const nextBatch = (this.currentBatchIndex + b) % this.totalBatches;
@@ -344,14 +279,12 @@ class LoadBalancer {
                         `[LoadBalancer] Batch #${this.currentBatchIndex} exhausted, failover to batch #${nextBatch}`
                     );
                     this.currentBatchIndex = nextBatch;
-                    this.stickyMap.clear();
-                    this.stickyMap.set(clientIP, new StickyInfo(alt.slotIndex, 1));
                     return alt;
                 }
             }
         }
 
-        // 4. All exhausted
+        // 3. All exhausted
         this.logger.warn("[LoadBalancer] All slots across all batches are resting or disconnected!");
         return null;
     }
@@ -379,7 +312,6 @@ class LoadBalancer {
                 if (batchIdx !== this.currentBatchIndex) {
                     this.logger.info(`[LoadBalancer] Retry failover: switching to batch #${batchIdx}`);
                     this.currentBatchIndex = batchIdx;
-                    this.stickyMap.clear();
                 }
                 return { authIndex: slot.authIndex, slotIndex: idx };
             }
@@ -391,7 +323,7 @@ class LoadBalancer {
 
     /**
      * Mark a slot as resting (429 circuit breaker)
-     * Clears sticky sessions and checks batch rotation
+     * Checks batch rotation after marking.
      */
     markSlotResting(authIndex) {
         const slot = this.slots.find(s => s.authIndex === authIndex);
@@ -402,12 +334,6 @@ class LoadBalancer {
             `[LoadBalancer] ⚡ Account #${authIndex} marked RESTING for ${this.restDurationMs / 1000}s ` +
                 `(until ${slot.restingUntil.toISOString()})`
         );
-
-        // Clear sticky sessions pointing to this slot
-        const slotIdx = this.slots.indexOf(slot);
-        for (const [ip, info] of this.stickyMap.entries()) {
-            if (info.slotIndex === slotIdx) this.stickyMap.delete(ip);
-        }
 
         // Check if batch rotation is needed
         this._checkBatchRotation();
@@ -496,23 +422,7 @@ class LoadBalancer {
         return conn && conn.readyState === 1;
     }
 
-    _cleanupStickyMap() {
-        if (this.stickyMap.size > 10000) {
-            this.stickyMap.clear();
-            return;
-        }
-        const cutoff = Date.now() - 30 * 60 * 1000;
-        for (const [ip, info] of this.stickyMap.entries()) {
-            if (info.lastUsed < cutoff) this.stickyMap.delete(ip);
-        }
-    }
-
     destroy() {
-        if (this._cleanupInterval) {
-            clearInterval(this._cleanupInterval);
-            this._cleanupInterval = null;
-        }
-        this.stickyMap.clear();
         this.retiredMap.clear();
     }
 }

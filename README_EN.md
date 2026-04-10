@@ -8,7 +8,7 @@ Geared towards high-concurrency environments, this project features a newly desi
 
 ---
 
-## ✨ Core Features
+## �?Core Features
 
 - 🚀 **High-Concurrency Account Pool Mode**:
   - **Dynamic Load Balancing**: Toggle on via `CONCURRENCY_MODE=pool` to orchestrate massive API requests in parallel using large groups of accounts.
@@ -90,7 +90,7 @@ The adapter replaces primary LLM gateway endpoints via its default port `http://
 - `/v1/models`: Yield supported models
 - `/v1/chat/completions`: Standard message completions, multimodal context (and imagen gen mapping). Live stream & fake stream native.
 
-### ♊ Gemini Native Standard
+### �?Gemini Native Standard
 
 - `/v1beta/models`
 - `/v1beta/models/{model_name}:streamGenerateContent`: Multi-directional stream sync execution.
@@ -116,10 +116,9 @@ Customize the container behavior globally by injecting environment fields.
 | `POOL_BATCH_SIZE`         | Break large authentication clusters down mathematically. e.g. Grouping 100 loaded profiles by sizes of `20`. Only invokes the next batch once the current one is entirely exhausted. Settable to `0` for one unified cluster. | `0`     |
 | `POOL_BATCH_SWITCH_RATIO` | Failsafe pivot threshold. Once X% of the active batch becomes 429 congested (e.g. `0.5` signifies 50% dead), active traffic smoothly swaps over to the next batch lineup.                                                     | `0.5`   |
 | `RETIRE_RECOVERY_HOURS`   | Rest timer (Hours). Handles indefinite rate-limit penalties by quarantining profiles out of the dispatch queues and scheduling auto-retries back into the active queues X hours later.                                        | `5`     |
-| `STICKY_THRESHOLD`        | Max sequential requests originating strictly from a unique IP resolving consistently to the same underlying context thread. Maintains narrative history logic without flagging bot sensors.                                   | `10`    |
 | `REST_DURATION_MINUTES`   | Baseline isolation timeout buffer (in minutes) upon experiencing standard transient non-429 circuit failures.                                                                                                                 | `1`     |
 
-### 🛠️ Basics
+### 🛠�?Basics
 
 | Variable               | Description                                                             | Default |
 | :--------------------- | :---------------------------------------------------------------------- | :------ |

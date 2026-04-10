@@ -74,33 +74,16 @@ class RequestHandler {
     }
 
     /**
-     * Get client IP from request (for LoadBalancer sticky sessions)
-     * @param {Object} req - Express request object
-     * @returns {string}
-     */
-    _getClientIP(req) {
-        return (
-            req.headers["cf-connecting-ip"] ||
-            req.headers["x-real-ip"] ||
-            (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
-            req.ip ||
-            req.connection?.remoteAddress ||
-            "unknown"
-        );
-    }
-
-    /**
      * Select auth index for a request.
-     * In pool mode: uses LoadBalancer for sticky round-robin selection.
+     * In pool mode: uses LoadBalancer for round-robin selection.
      * In single mode: uses currentAuthIndex (legacy behavior).
      *
      * @param {Object} req - Express request object
      * @returns {{ authIndex: number, isPooled: boolean } | null} null means all slots unavailable
      */
-    _selectAuthForRequest(req) {
+    _selectAuthForRequest() {
         if (this.isPoolMode) {
-            const clientIP = this._getClientIP(req);
-            const selected = this.loadBalancer.selectSlot(clientIP);
+            const selected = this.loadBalancer.selectSlot();
             if (!selected) return null;
             return { authIndex: selected.authIndex, isPooled: true };
         }

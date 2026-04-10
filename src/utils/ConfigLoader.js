@@ -38,7 +38,6 @@ class ConfigLoader {
             poolBatchSwitchRatio: 0.5,
             restDurationMinutes: 1,
             retryDelay: 2000,
-            stickyThreshold: 10,
             streamingMode: "real",
             switchOnUses: 40,
             wsPort: 9998,
@@ -86,10 +85,6 @@ class ConfigLoader {
             } else {
                 this.logger.warn(`[Config] Invalid CONCURRENCY_MODE '${mode}', using default 'pool'.`);
             }
-        }
-        if (process.env.STICKY_THRESHOLD) {
-            const parsed = parseInt(process.env.STICKY_THRESHOLD, 10);
-            config.stickyThreshold = Number.isFinite(parsed) ? Math.max(1, parsed) : config.stickyThreshold;
         }
         if (process.env.REST_DURATION_MINUTES) {
             const parsed = parseInt(process.env.REST_DURATION_MINUTES, 10);
@@ -195,7 +190,7 @@ class ConfigLoader {
         this.logger.info(`  Max Contexts: ${config.maxContexts === 0 ? "Unlimited" : config.maxContexts}`);
         this.logger.info(`  Concurrency Mode: ${config.concurrencyMode}`);
         if (config.concurrencyMode === "pool") {
-            this.logger.info(`  Sticky Threshold: ${config.stickyThreshold}`);
+            this.logger.info(`  Load Balancing: Pure Round-Robin`);
             this.logger.info(`  Rest Duration: ${config.restDurationMinutes} minutes`);
         }
         this.logger.info(
