@@ -40,6 +40,12 @@ class RequestHandler {
 
         // Timeout settings
         this.timeouts = TIMEOUTS;
+
+        // Pool-mode timeout failure tracking
+        // Maps authIndex -> consecutive timeout count
+        // When count reaches threshold, the slot is marked as resting
+        this._poolTimeoutCounters = new Map();
+        this._poolTimeoutThreshold = parseInt(process.env.POOL_TIMEOUT_THRESHOLD, 10) || 3;
     }
 
     // Delegate properties to AuthSwitcher
@@ -793,6 +799,9 @@ class RequestHandler {
                 proxyRequest.streaming_mode = "fake";
                 await this._handleNonStreamResponse(proxyRequest, messageQueue, req, res, targetAuthIndex);
             }
+
+            // Success: reset timeout failure counter for this account
+            if (this.isPoolMode) this._resetPoolTimeoutCounter(targetAuthIndex);
         } catch (error) {
             // In pool mode, retire the account on 429 and trigger swap
             if (this.isPoolMode && error && (error.status === 429 || error.message?.includes("429"))) {
@@ -800,7 +809,7 @@ class RequestHandler {
             }
 
             // Handle queue timeout by notifying browser
-            this._handleQueueTimeout(error, requestId);
+            this._handleQueueTimeout(error, requestId, targetAuthIndex);
 
             this._handleRequestError(error, res, "gemini");
         } finally {
@@ -1208,6 +1217,9 @@ class RequestHandler {
                     if (connectionMaintainer) clearTimeout(connectionMaintainer);
                 }
             }
+
+            // Success: reset timeout failure counter for this account
+            if (this.isPoolMode) this._resetPoolTimeoutCounter(targetAuthIndex);
         } catch (error) {
             // In pool mode, retire the account on 429 and trigger swap
             if (this.isPoolMode && error && (error.status === 429 || error.message?.includes("429"))) {
@@ -1215,7 +1227,7 @@ class RequestHandler {
             }
 
             // Handle queue timeout by notifying browser
-            this._handleQueueTimeout(error, requestId);
+            this._handleQueueTimeout(error, requestId, targetAuthIndex);
 
             this._handleRequestError(error, res);
         } finally {
@@ -1619,11 +1631,14 @@ class RequestHandler {
                     if (connectionMaintainer) clearTimeout(connectionMaintainer);
                 }
             }
+
+            // Success: reset timeout failure counter for this account
+            if (this.isPoolMode) this._resetPoolTimeoutCounter(targetAuthIndex);
         } catch (error) {
             if (this.isPoolMode && error && (error.status === 429 || error.message?.includes("429"))) {
                 this._retireAndSwapPoolAccount(targetAuthIndex);
             }
-            this._handleQueueTimeout(error, requestId);
+            this._handleQueueTimeout(error, requestId, targetAuthIndex);
             this._handleRequestError(error, res, "response_api");
         } finally {
             this.connectionRegistry.removeMessageQueue(requestId, "request_complete");
@@ -1969,11 +1984,14 @@ class RequestHandler {
                     if (connectionMaintainer) clearTimeout(connectionMaintainer);
                 }
             }
+
+            // Success: reset timeout failure counter for this account
+            if (this.isPoolMode) this._resetPoolTimeoutCounter(targetAuthIndex);
         } catch (error) {
             if (this.isPoolMode && error && (error.status === 429 || error.message?.includes("429"))) {
                 this._retireAndSwapPoolAccount(targetAuthIndex);
             }
-            this._handleQueueTimeout(error, requestId);
+            this._handleQueueTimeout(error, requestId, targetAuthIndex);
             this._handleClaudeRequestError(error, res);
         } finally {
             this.connectionRegistry.removeMessageQueue(requestId, "request_complete");
@@ -3715,21 +3733,49 @@ class RequestHandler {
      * @param {Error} error - The timeout error
      * @param {string} requestId - The request ID
      */
-    _handleQueueTimeout(error, requestId) {
+    _handleQueueTimeout(error, requestId, targetAuthIndex = null) {
         if (error.code === "QUEUE_TIMEOUT" || error instanceof QueueTimeoutError) {
             // Get the authIndex for this request from the registry
-            const authIndex = this.connectionRegistry.getAuthIndexForRequest(requestId);
+            const authIndex = targetAuthIndex ?? this.connectionRegistry.getAuthIndexForRequest(requestId);
             const requestAttemptId = this.connectionRegistry.getRequestAttemptIdForRequest(requestId);
             if (authIndex !== null) {
                 this.logger.debug(
                     `[Request] Queue timeout for request #${requestId}, notifying browser on account #${authIndex} to cancel`
                 );
                 this._cancelBrowserRequest(requestId, authIndex, requestAttemptId);
+
+                // Pool-mode: track consecutive timeout failures per account
+                if (this.isPoolMode && this.loadBalancer) {
+                    const count = (this._poolTimeoutCounters.get(authIndex) || 0) + 1;
+                    this._poolTimeoutCounters.set(authIndex, count);
+                    this.logger.warn(
+                        `[Pool] Account #${authIndex} timeout count: ${count}/${this._poolTimeoutThreshold}`
+                    );
+
+                    if (count >= this._poolTimeoutThreshold) {
+                        this.logger.warn(
+                            `[Pool] ⚠️ Account #${authIndex} hit ${count} consecutive timeouts, marking as RESTING`
+                        );
+                        this.loadBalancer.markSlotResting(authIndex);
+                        this._poolTimeoutCounters.delete(authIndex);
+                    }
+                }
             } else {
                 this.logger.debug(
                     `[Request] Queue timeout for request #${requestId}, but queue already removed (authIndex not found)`
                 );
             }
+        }
+    }
+
+    /**
+     * Reset timeout failure counter for an account after a successful request.
+     * Called when a request completes successfully in pool mode.
+     * @param {number} authIndex - The account that succeeded
+     */
+    _resetPoolTimeoutCounter(authIndex) {
+        if (this._poolTimeoutCounters.has(authIndex)) {
+            this._poolTimeoutCounters.delete(authIndex);
         }
     }
 

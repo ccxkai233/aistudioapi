@@ -649,6 +649,9 @@ class ProxyServerSystem extends EventEmitter {
      * Finds the next available reserve, initializes its browser context,
      * adds it to the LoadBalancer, and cleans up the retired context.
      *
+     * Uses iterative approach instead of recursion to avoid deadlocking
+     * on a single failed reserve account.
+     *
      * @param {number} retiredAuthIndex - The auth index that was retired
      */
     async swapPoolAccount(retiredAuthIndex) {
@@ -675,50 +678,66 @@ class ProxyServerSystem extends EventEmitter {
                 return;
             }
 
-            const newAuthIndex = reserveIndices[0];
-            this.logger.info(
-                `[Pool] 🔄 Swapping retired #${retiredAuthIndex} → reserve #${newAuthIndex} ` +
-                    `(${reserveIndices.length} reserves available)`
-            );
+            // Track failed reserves to avoid retrying them
+            const failedReserves = new Set();
+            let swapSucceeded = false;
 
-            // Initialize browser context for the reserve account
-            const contextReady = this.browserManager.contexts.has(newAuthIndex);
-            if (!contextReady) {
-                const success = await this.browserManager.initializeSingleContext(newAuthIndex);
-                if (!success) {
-                    this.logger.error(`[Pool] Failed to initialize context for reserve #${newAuthIndex}`);
-                    // Try next reserve if available
-                    if (reserveIndices.length > 1) {
-                        this.logger.info(`[Pool] Will attempt next reserve account...`);
-                        this._pendingSwaps.delete(retiredAuthIndex);
-                        return this.swapPoolAccount(retiredAuthIndex);
-                    }
-                    return;
-                }
-            }
+            // Iterate through ALL available reserves (no recursion)
+            for (const newAuthIndex of reserveIndices) {
+                // Skip reserves that already failed in this swap attempt
+                if (failedReserves.has(newAuthIndex)) continue;
 
-            // Wait for WebSocket connection to be established
-            const wsTimeout = 15000; // 15 seconds
-            const startTime = Date.now();
-            while (Date.now() - startTime < wsTimeout) {
-                const conn = this.connectionRegistry.getConnectionByAuth(newAuthIndex, false);
-                if (conn && conn.readyState === 1) break;
-                await new Promise(resolve => setTimeout(resolve, 200));
-            }
-
-            const conn = this.connectionRegistry.getConnectionByAuth(newAuthIndex, false);
-            if (!conn || conn.readyState !== 1) {
-                this.logger.error(
-                    `[Pool] WebSocket not established for reserve #${newAuthIndex} within ${wsTimeout}ms`
+                this.logger.info(
+                    `[Pool] 🔄 Swapping retired #${retiredAuthIndex} → reserve #${newAuthIndex} ` +
+                        `(${reserveIndices.length - failedReserves.size} reserves remaining)`
                 );
-                return;
+
+                // Initialize browser context for the reserve account
+                const contextReady = this.browserManager.contexts.has(newAuthIndex);
+                if (!contextReady) {
+                    const success = await this.browserManager.initializeSingleContext(newAuthIndex);
+                    if (!success) {
+                        this.logger.error(
+                            `[Pool] Failed to initialize context for reserve #${newAuthIndex}, trying next reserve...`
+                        );
+                        failedReserves.add(newAuthIndex);
+                        continue;
+                    }
+                }
+
+                // Wait for WebSocket connection to be established
+                const wsTimeout = 15000; // 15 seconds
+                const startTime = Date.now();
+                while (Date.now() - startTime < wsTimeout) {
+                    const conn = this.connectionRegistry.getConnectionByAuth(newAuthIndex, false);
+                    if (conn && conn.readyState === 1) break;
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
+                const conn = this.connectionRegistry.getConnectionByAuth(newAuthIndex, false);
+                if (!conn || conn.readyState !== 1) {
+                    this.logger.error(
+                        `[Pool] WebSocket not established for reserve #${newAuthIndex} within ${wsTimeout}ms, trying next reserve...`
+                    );
+                    failedReserves.add(newAuthIndex);
+                    continue;
+                }
+
+                // Add the new account to the LoadBalancer pool
+                this.loadBalancer.addSlot(newAuthIndex);
+                this.logger.info(
+                    `[Pool] ✅ Reserve #${newAuthIndex} added to pool. Active: ${this.loadBalancer.slots.length}`
+                );
+                swapSucceeded = true;
+                break;
             }
 
-            // Add the new account to the LoadBalancer pool
-            this.loadBalancer.addSlot(newAuthIndex);
-            this.logger.info(
-                `[Pool] ✅ Reserve #${newAuthIndex} added to pool. Active: ${this.loadBalancer.slots.length}`
-            );
+            if (!swapSucceeded) {
+                this.logger.error(
+                    `[Pool] ❌ All ${reserveIndices.length} reserve accounts failed for retired #${retiredAuthIndex}. ` +
+                        `Failed reserves: [${[...failedReserves].join(", ")}]`
+                );
+            }
 
             // Clean up the retired account's context after a delay
             // to let any in-flight requests complete

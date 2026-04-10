@@ -940,14 +940,11 @@ class BrowserManager {
         let tickCount = 0;
 
         // Run every 4 seconds
+        // NOTE: Health monitor runs on ALL pool contexts (not just the active one)
+        // to prevent background pages from going dormant due to Google's inactivity mechanisms.
         contextData.healthMonitorInterval = setInterval(async () => {
             try {
-                // Check if this is still the current active account
-                // This prevents background contexts from running healthMonitor unnecessarily
-                if (this._currentAuthIndex !== authIndex) {
-                    // Silently skip - this context is not active
-                    return;
-                }
+                const isActiveAccount = this._currentAuthIndex === authIndex;
 
                 const page = contextData.page;
                 // Double check page status
@@ -963,8 +960,11 @@ class BrowserManager {
                 tickCount++;
 
                 try {
-                    // 1. Keep-Alive: Random micro-actions (30% chance)
-                    if (Math.random() < 0.3) {
+                    // 1. Keep-Alive: Random micro-actions
+                    // Active account: 30% chance (original behavior)
+                    // Background accounts: 10% chance (lighter touch to prevent dormancy)
+                    const keepAliveChance = isActiveAccount ? 0.3 : 0.1;
+                    if (Math.random() < keepAliveChance) {
                         try {
                             // Optimized randomness based on viewport
                             const vp = page.viewportSize() || { height: 1080, width: 1920 };
@@ -981,8 +981,11 @@ class BrowserManager {
                         }
                     }
 
-                    // 2. Anti-Timeout: Move to top-left corner (1,1) every ~1 minute (15 ticks)
-                    if (tickCount % 15 === 0) {
+                    // 2. Anti-Timeout: Move to top-left corner (1,1) periodically
+                    // Active account: every ~1 minute (15 ticks)
+                    // Background accounts: every ~2 minutes (30 ticks) - less frequent but still prevents dormancy
+                    const antiTimeoutInterval = isActiveAccount ? 15 : 30;
+                    if (tickCount % antiTimeoutInterval === 0) {
                         try {
                             await this._simulateHumanMovement(page, 1, 1);
                         } catch (e) {
@@ -991,7 +994,8 @@ class BrowserManager {
                     }
 
                     // 3. Auto-Save Auth: Every ~24 hours (21600 ticks * 4s = 86400s)
-                    if (tickCount % 21600 === 0) {
+                    // Only for the active account to avoid unnecessary I/O from background contexts
+                    if (isActiveAccount && tickCount % 21600 === 0) {
                         try {
                             this.logger.info(
                                 `[HealthMonitor#${authIndex}] 💾 Triggering daily periodic auth file update...`
@@ -1002,7 +1006,7 @@ class BrowserManager {
                         }
                     }
 
-                    // 4. Popup & Overlay Cleanup
+                    // 4. Popup & Overlay Cleanup (runs on ALL accounts to prevent popups from blocking sessions)
                     await page.evaluate(() => {
                         const blockers = [
                             "div.cdk-overlay-backdrop",
